@@ -30,14 +30,31 @@ app.use(session({
     cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
-// Make baseUrl available to all routes
+// Email configuration (if you have nodemailer)
+let sendEmail = async (to, subject, html) => {
+    console.log(`Email would be sent to ${to}: ${subject}`);
+    // Uncomment and configure if you have nodemailer set up
+    /*
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        }
+    });
+    await transporter.sendMail({ from: process.env.EMAIL_USER, to, subject, html });
+    */
+};
+
 const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${PORT}`;
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Vendor Signup
+// ============= VENDOR ROUTES =============
+
 app.post('/vendor/signup', async (req, res) => {
     const { business_name, owner_name, email, phone, password } = req.body;
     
@@ -70,20 +87,6 @@ app.post('/vendor/signup', async (req, res) => {
     }
 });
 
-// Vendor notification settings (store push subscription)
-app.post('/api/vendor/save-push-subscription', async (req, res) => {
-    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
-    
-    const { subscription } = req.body;
-    
-    await db.query(`
-        UPDATE vendors SET push_subscription = $1 WHERE id = $2
-    `, [JSON.stringify(subscription), req.session.vendor.id]);
-    
-    res.json({ success: true });
-});
-
-// Vendor Login
 app.post('/vendor/login', (req, res) => {
     const { email, password } = req.body;
     
@@ -103,7 +106,6 @@ app.get('/vendor/logout', (req, res) => {
     res.redirect('/');
 });
 
-// Get vendor data
 app.get('/api/vendor/data', (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -118,7 +120,6 @@ app.get('/api/vendor/data', (req, res) => {
             db.all(`SELECT * FROM orders WHERE vendor_id = ? AND status != 'completed' ORDER BY created_at DESC`, [vendorId], (err, orders) => {
                 if (err) return res.status(500).json({ error: err.message });
                 
-                // Check if QR code exists
                 const qrPath = `./uploads/qr_${vendorId}.png`;
                 const qrExists = fs.existsSync(qrPath);
                 
@@ -133,7 +134,6 @@ app.get('/api/vendor/data', (req, res) => {
     });
 });
 
-// Regenerate QR code
 app.get('/api/vendor/regenerate-qr', (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -150,7 +150,6 @@ app.get('/api/vendor/regenerate-qr', (req, res) => {
     });
 });
 
-// Add menu item
 app.post('/api/vendor/add-menu-item', upload.single('photo'), (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -166,7 +165,6 @@ app.post('/api/vendor/add-menu-item', upload.single('photo'), (req, res) => {
         });
 });
 
-// Toggle availability
 app.post('/api/vendor/toggle-availability', (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -180,7 +178,6 @@ app.post('/api/vendor/toggle-availability', (req, res) => {
         });
 });
 
-// Update profile
 app.post('/api/vendor/update-profile', upload.single('logo'), (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -206,7 +203,6 @@ app.post('/api/vendor/update-profile', upload.single('logo'), (req, res) => {
     });
 });
 
-// Update order status
 app.post('/api/vendor/update-order-status', (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -220,7 +216,8 @@ app.post('/api/vendor/update-order-status', (req, res) => {
         });
 });
 
-// Admin login
+// ============= ADMIN ROUTES =============
+
 app.post('/admin/login', (req, res) => {
     const { username, password } = req.body;
     
@@ -235,7 +232,6 @@ app.post('/admin/login', (req, res) => {
     });
 });
 
-// Admin APIs
 app.get('/api/admin/vendors', (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
@@ -271,18 +267,69 @@ app.get('/api/admin/orders', (req, res) => {
 app.get('/api/admin/stats', (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
+    // Get suspended vendors count
     db.get(`SELECT 
             (SELECT COUNT(*) FROM vendors) as total_vendors,
             (SELECT COUNT(*) FROM vendors WHERE is_suspended = 0) as active_vendors,
-            (SELECT COUNT(*) FROM orders) as total_orders,
-            (SELECT COUNT(*) FROM orders WHERE payment_method = 'card') as card_orders,
-            (SELECT COUNT(*) FROM orders WHERE payment_method = 'cash') as cash_orders`,
+            (SELECT COUNT(*) FROM vendors WHERE is_suspended = 1) as suspended_vendors,
+            (SELECT COUNT(*) FROM orders) as total_orders`,
         [], (err, stats) => {
-            res.json(stats || { total_vendors: 0, active_vendors: 0, total_orders: 0, card_orders: 0, cash_orders: 0 });
+            res.json(stats || { total_vendors: 0, active_vendors: 0, suspended_vendors: 0, total_orders: 0 });
         });
 });
 
-// Customer menu
+// ============= AD MANAGEMENT ROUTES =============
+
+app.get('/api/admin/sponsor-ads', (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    
+    db.all(`SELECT * FROM sponsor_ads ORDER BY id DESC`, [], (err, ads) => {
+        res.json(ads || []);
+    });
+});
+
+app.post('/api/admin/add-sponsor', (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { name, link } = req.body;
+    
+    db.run(`INSERT INTO sponsor_ads (name, link) VALUES (?, ?)`, [name, link], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
+app.delete('/api/admin/delete-sponsor/:id', (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { id } = req.params;
+    
+    db.run(`DELETE FROM sponsor_ads WHERE id = ?`, [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
+app.get('/api/admin/ad-settings', (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    
+    db.get(`SELECT * FROM ad_settings LIMIT 1`, [], (err, settings) => {
+        res.json(settings || {});
+    });
+});
+
+app.post('/api/admin/ad-settings', (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { adsense_client, top_slot, middle_slot } = req.body;
+    
+    db.run(`INSERT OR REPLACE INTO ad_settings (id, adsense_client, top_slot, middle_slot, updated_at) 
+            VALUES (1, ?, ?, ?, datetime('now'))`,
+        [adsense_client, top_slot, middle_slot], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        });
+});
+
+// ============= CUSTOMER ROUTES =============
+
 app.get('/menu/:vendorId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'customer-menu.html'));
 });
@@ -308,38 +355,32 @@ app.get('/api/menu/:vendorId', (req, res) => {
     });
 });
 
-// Place order with push notification
-app.post('/api/place-order', async (req, res) => {
+app.post('/api/place-order', (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
     
     const orderNumber = 'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     
-    try {
-        await db.query(
-            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
-            [vendor_id, orderNumber, customer_name, customer_phone, JSON.stringify(items), total, payment_method]
-        );
-        
-        // Get vendor info for notification
-        const vendorResult = await db.query(`SELECT email, business_name, push_subscription FROM vendors WHERE id = $1`, [vendor_id]);
-        
-        if (vendorResult.rows.length > 0) {
-            const vendor = vendorResult.rows[0];
+    db.run(`INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [vendor_id, orderNumber, customer_name, customer_phone, JSON.stringify(items), total, payment_method],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
             
-            // Send email notification
-            await sendEmail(
-                vendor.email,
-                `🆕 New Order #${orderNumber} - ${vendor.business_name}`,
-                `<h2>New Order!</h2><p><strong>Order #:</strong> ${orderNumber}</p><p><strong>Customer:</strong> ${customer_name || 'Anonymous'}</p><p><strong>Total:</strong> R${parseFloat(total).toFixed(2)}</p><a href="${getBaseUrl()}/vendor-login.html">View Order</a>`
-            );
+            // Get vendor email for notification
+            db.get(`SELECT email, business_name FROM vendors WHERE id = ?`, [vendor_id], (err, vendor) => {
+                if (vendor && vendor.email) {
+                    sendEmail(vendor.email, `New Order #${orderNumber}`, `You have a new order for ${vendor.business_name}. Total: R${total}`);
+                }
+            });
             
-            // TODO: Send push notification if subscription exists
-            // We'll add this after setting up VAPID keys
-        }
-        
-        res.json({ success: true, order_number: orderNumber });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+            res.json({ success: true, order_number: orderNumber });
+        });
+});
+
+app.listen(PORT, () => {
+    console.log(`\n✅ KheZwo is running!`);
+    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
+    console.log(`\n📋 Admin: username "khezwo_admin" | password "khezwo123"`);
+    console.log(`🎉 Ready to go!\n`);
 });
