@@ -8,8 +8,9 @@ const qrcode = require('qrcode');
 const db = require('./database');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
+// Ensure uploads folder exists
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 
 const storage = multer.diskStorage({
@@ -23,16 +24,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
 app.use(session({
-    secret: 'khezwo-secret',
+    secret: process.env.SESSION_SECRET || 'khezwo-secret',
     resave: false,
     saveUninitialized: true,
     cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
+// Make baseUrl available to all routes
+const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${PORT}`;
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Vendor Signup
 app.post('/vendor/signup', async (req, res) => {
     const { business_name, owner_name, email, phone, password } = req.body;
     
@@ -54,7 +59,8 @@ app.post('/vendor/signup', async (req, res) => {
                     return res.status(500).json({ error: err.message });
                 }
                 
-                const qrUrl = `http://localhost:${PORT}/menu/${this.lastID}`;
+                const baseUrl = getBaseUrl();
+                const qrUrl = `${baseUrl}/menu/${this.lastID}`;
                 qrcode.toFile(`./uploads/qr_${this.lastID}.png`, qrUrl, () => {});
                 
                 res.json({ success: true, vendor_id: this.lastID });
@@ -64,6 +70,7 @@ app.post('/vendor/signup', async (req, res) => {
     }
 });
 
+// Vendor Login
 app.post('/vendor/login', (req, res) => {
     const { email, password } = req.body;
     
@@ -83,6 +90,7 @@ app.get('/vendor/logout', (req, res) => {
     res.redirect('/');
 });
 
+// Get vendor data
 app.get('/api/vendor/data', (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -97,12 +105,39 @@ app.get('/api/vendor/data', (req, res) => {
             db.all(`SELECT * FROM orders WHERE vendor_id = ? AND status != 'completed' ORDER BY created_at DESC`, [vendorId], (err, orders) => {
                 if (err) return res.status(500).json({ error: err.message });
                 
-                res.json({ vendor, menu_items: items || [], orders: orders || [] });
+                // Check if QR code exists
+                const qrPath = `./uploads/qr_${vendorId}.png`;
+                const qrExists = fs.existsSync(qrPath);
+                
+                res.json({ 
+                    vendor, 
+                    menu_items: items || [], 
+                    orders: orders || [],
+                    qr_exists: qrExists
+                });
             });
         });
     });
 });
 
+// Regenerate QR code
+app.get('/api/vendor/regenerate-qr', (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorId = req.session.vendor.id;
+    const baseUrl = getBaseUrl();
+    const qrUrl = `${baseUrl}/menu/${vendorId}`;
+    
+    qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, (err) => {
+        if (err) {
+            console.error('QR generation error:', err);
+            return res.status(500).json({ error: 'Failed to generate QR code' });
+        }
+        res.json({ success: true, qrUrl: `/uploads/qr_${vendorId}.png?t=${Date.now()}` });
+    });
+});
+
+// Add menu item
 app.post('/api/vendor/add-menu-item', upload.single('photo'), (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -118,6 +153,7 @@ app.post('/api/vendor/add-menu-item', upload.single('photo'), (req, res) => {
         });
 });
 
+// Toggle availability
 app.post('/api/vendor/toggle-availability', (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -131,6 +167,7 @@ app.post('/api/vendor/toggle-availability', (req, res) => {
         });
 });
 
+// Update profile
 app.post('/api/vendor/update-profile', upload.single('logo'), (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -156,6 +193,7 @@ app.post('/api/vendor/update-profile', upload.single('logo'), (req, res) => {
     });
 });
 
+// Update order status
 app.post('/api/vendor/update-order-status', (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -169,6 +207,7 @@ app.post('/api/vendor/update-order-status', (req, res) => {
         });
 });
 
+// Admin login
 app.post('/admin/login', (req, res) => {
     const { username, password } = req.body;
     
@@ -183,6 +222,7 @@ app.post('/admin/login', (req, res) => {
     });
 });
 
+// Admin APIs
 app.get('/api/admin/vendors', (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
@@ -229,6 +269,7 @@ app.get('/api/admin/stats', (req, res) => {
         });
 });
 
+// Customer menu
 app.get('/menu/:vendorId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'customer-menu.html'));
 });
@@ -254,6 +295,7 @@ app.get('/api/menu/:vendorId', (req, res) => {
     });
 });
 
+// Place order
 app.post('/api/place-order', (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
     
@@ -271,6 +313,7 @@ app.post('/api/place-order', (req, res) => {
 app.listen(PORT, () => {
     console.log(`\n✅ KheZwo is running!`);
     console.log(`📍 http://localhost:${PORT}`);
+    console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
     console.log(`\n📋 Admin: username "khezwo_admin" | password "khezwo123"`);
     console.log(`🎉 Ready to go!\n`);
 });
