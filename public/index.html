@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KheZwo - QR Code Ordering System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 60px 20px 40px;
+            color: white;
+        }
+        
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .logo span {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 10px;
+        }
+        
+        .tagline {
+            font-size: 20px;
+            opacity: 0.95;
+            margin-bottom: 30px;
+        }
+        
+        /* Buttons */
+        .buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid white;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        
+        .btn-outline:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* Features */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 60px;
+        }
+        
+        .feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-card h3 {
+            font-size: 22px;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+        
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        /* How it works */
+        .how-it-works {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            margin-top: 60px;
+            text-align: center;
+        }
+        
+        .how-it-works h2 {
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+        
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+        
+        .step {
+            text-align: center;
+        }
+        
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 auto 15px;
+        }
+        
+        .step h4 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .step p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 40px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 60px;
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 40px 20px 30px;
+            }
+            
+            .logo {
+                font-size: 32px;
+            }
+            
+            .tagline {
+                font-size: 16px;
+            }
+            
+            .buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 200px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <span>KheZwo</span>
+            </div>
+            <div class="tagline">
+                Scan. Order. Done.<br>
+                No more paper menus. No more manual recording.
+            </div>
+            <div class="buttons">
+                <a href="/vendor-signup.html" class="btn btn-primary">Start Your Business →</a>
+                <a href="/vendor-login.html" class="btn btn-secondary">Vendor Login</a>
+                <a href="/admin-login.html" class="btn btn-outline">Admin Login</a>
+            </div>
+        </div>
+        
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <h3>Scan to Order</h3>
+                <p>Customers scan a QR code, view your menu, and order instantly. No app download needed.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <h3>Your Brand</h3>
+                <p>Your logo, your colors, your menu. Customers see your business, not ours.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Smart Analytics</h3>
+                <p>Track sales, manage inventory, and see what's selling — all from one dashboard.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💰</div>
+                <h3>Cash or Card</h3>
+                <p>Accept both payment methods. Let customers choose what works for them.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📅</div>
+                <h3>Schedule Orders</h3>
+                <p>Customers can order ahead. You get the order exactly when you need it.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Always in Control</h3>
+                <p>Set your hours, mark items out of stock, and manage everything in real-time.</p>
+            </div>
+        </div>
+        
+        <div class="how-it-works">
+            <h2>How It Works</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h4>Sign Up</h4>
+                    <p>Create your vendor account in 2 minutes</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h4>Add Your Menu</h4>
+                    <p>Upload items, prices, and photos</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h4>Print QR Code</h4>
+                    <p>Display it on tables or at the counter</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h4>Start Taking Orders</h4>
+                    <p>Customers scan and order instantly</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>© 2025 KheZwo Tech Solutions — Empowering small businesses with smart ordering</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+node_modules/
+khezwo.db
+uploads/*.png
+.DS_Store

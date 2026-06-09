@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Sign Up - KheZwo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        
+        .logo {
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .login-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .info a {
+            color: #1565c0;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            .card {
+                padding: 25px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">KheZwo</div>
+            <h1>Start Your Digital Menu</h1>
+            <div class="subtitle">Join hundreds of businesses going paperless</div>
+            
+            <div id="errorMsg" class="error"></div>
+            <div id="successMsg" class="success"></div>
+            <div id="infoMsg" class="info">
+                💡 Tip: After signing up, you'll get a QR code to print and display.
+            </div>
+            
+            <form id="signupForm">
+                <div class="form-group">
+                    <label>Business Name *</label>
+                    <input type="text" id="businessName" required placeholder="e.g., The Coffee House">
+                </div>
+                
+                <div class="form-group">
+                    <label>Owner Name *</label>
+                    <input type="text" id="ownerName" required placeholder="Your full name">
+                </div>
+                
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" id="email" required placeholder="you@business.com">
+                </div>
+                
+                <div class="form-group">
+                    <label>Phone Number *</label>
+                    <input type="tel" id="phone" required placeholder="e.g., 0712345678">
+                </div>
+                
+                <div class="form-group">
+                    <label>Password *</label>
+                    <input type="password" id="password" required placeholder="At least 6 characters">
+                </div>
+                
+                <div class="form-group">
+                    <label>Confirm Password *</label>
+                    <input type="password" id="confirmPassword" required placeholder="Type password again">
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">Create Account →</button>
+            </form>
+            
+            <div class="login-link">
+                Already have an account? <a href="/vendor-login.html">Login here</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('signupForm');
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Hide previous messages
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            
+            // Get values
+            const businessName = document.getElementById('businessName').value.trim();
+            const ownerName = document.getElementById('ownerName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // Validation
+            if (!businessName || !ownerName || !email || !phone || !password) {
+                showError('Please fill in all fields');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError('Password must be at least 6 characters');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+            
+            if (!email.includes('@')) {
+                showError('Please enter a valid email address');
+                return;
+            }
+            
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating Account...';
+            
+            try {
+                const response = await fetch('/vendor/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        business_name: businessName,
+                        owner_name: ownerName,
+                        email: email,
+                        phone: phone,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showSuccess('Account created successfully! Redirecting to login...');
+                    
+                    // Clear form
+                    form.reset();
+                    
+                    // Redirect after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = '/vendor-login.html';
+                    }, 2000);
+                } else {
+                    showError(data.error || 'Signup failed. Please try again.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create Account →';
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                showError('Network error. Please check if the server is running.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account →';
+            }
+        });
+        
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            setTimeout(() => {
+                errorMsg.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            successMsg.textContent = message;
+            successMsg.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

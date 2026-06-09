@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KheZwo Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #0f0f1a;
+            color: #333;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .logo span {
+            color: #667eea;
+        }
+        
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            transition: background 0.2s;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #1a1a2e;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        /* Tabs */
+        .tabs {
+            background: white;
+            display: flex;
+            gap: 5px;
+            padding: 0 30px;
+            border-bottom: 2px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover {
+            color: #1a1a2e;
+        }
+        
+        .tab.active {
+            color: #1a1a2e;
+            border-bottom: 3px solid #1a1a2e;
+        }
+        
+        /* Content */
+        .content {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .card h2 {
+            margin-bottom: 20px;
+            font-size: 20px;
+            color: #1a1a2e;
+        }
+        
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+        
+        .vendor-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-active {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .status-suspended {
+            background: #fee;
+            color: #c33;
+        }
+        
+        .status-pending {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+            margin: 0 2px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        .btn-suspend {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .btn-unsuspend {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-view {
+            background: #2196f3;
+            color: white;
+        }
+        
+        /* Alert */
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+        
+        /* Search */
+        .search-box {
+            margin-bottom: 20px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+                padding: 15px;
+            }
+            
+            .tabs {
+                padding: 0 15px;
+            }
+            
+            .tab {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+            
+            .content {
+                padding: 15px;
+            }
+            
+            th, td {
+                font-size: 12px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">KheZwo <span>Admin</span></div>
+        <div class="admin-info">
+            <span>Welcome, Admin</span>
+            <a href="/vendor/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="stats-container" id="statsContainer">
+        <div class="stat-card">
+            <div class="stat-number" id="totalVendors">-</div>
+            <div class="stat-label">Total Vendors</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="activeVendors">-</div>
+            <div class="stat-label">Active Vendors</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="totalOrders">-</div>
+            <div class="stat-label">Total Orders</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="cardOrders">-</div>
+            <div class="stat-label">Card Payments</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="cashOrders">-</div>
+            <div class="stat-label">Cash Payments</div>
+        </div>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" data-tab="vendors">🏪 Vendors</button>
+        <button class="tab" data-tab="orders">📋 All Orders</button>
+        <button class="tab" data-tab="analytics">📊 Analytics</button>
+    </div>
+    
+    <div class="content">
+        <div id="alert" class="alert"></div>
+        
+        <!-- Vendors Tab -->
+        <div id="vendors-tab" class="tab-content active">
+            <div class="card">
+                <h2>All Vendors on KheZwo</h2>
+                <div class="search-box">
+                    <input type="text" id="vendorSearch" placeholder="Search by business name or email...">
+                </div>
+                <div class="table-container">
+                    <table id="vendorsTable">
+                        <thead>
+                            <tr><th>ID</th><th>Business</th><th>Owner</th><th>Email</th><th>Phone</th><th>Status</th><th>Orders</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="vendorsList">
+                            <tr><td colspan="8">Loading vendors...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Orders Tab -->
+        <div id="orders-tab" class="tab-content">
+            <div class="card">
+                <h2>All Platform Orders</h2>
+                <div class="table-container">
+                    <table id="ordersTable">
+                        <thead>
+                            <tr><th>Order #</th><th>Vendor</th><th>Customer</th><th>Total</th><th>Payment</th><th>Status</th><th>Date</th></tr>
+                        </thead>
+                        <tbody id="ordersList">
+                            <tr><td colspan="7">Loading orders...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Analytics Tab -->
+        <div id="analytics-tab" class="tab-content">
+            <div class="card">
+                <h2>Platform Insights</h2>
+                <div id="analyticsContent">
+                    <p>Loading analytics...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let allVendors = [];
+        
+        // Load all data
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/stats');
+                const stats = await response.json();
+                
+                document.getElementById('totalVendors').textContent = stats.total_vendors || 0;
+                document.getElementById('activeVendors').textContent = stats.active_vendors || 0;
+                document.getElementById('totalOrders').textContent = stats.total_orders || 0;
+                document.getElementById('cardOrders').textContent = stats.card_orders || 0;
+                document.getElementById('cashOrders').textContent = stats.cash_orders || 0;
+            } catch (err) {
+                console.error('Error loading stats:', err);
+            }
+        }
+        
+        async function loadVendors() {
+            try {
+                const response = await fetch('/api/admin/vendors');
+                const vendors = await response.json();
+                allVendors = vendors;
+                renderVendors(vendors);
+            } catch (err) {
+                console.error('Error loading vendors:', err);
+                document.getElementById('vendorsList').innerHTML = '<tr><td colspan="8">Error loading vendors</td></tr>';
+            }
+        }
+        
+        function renderVendors(vendors) {
+            const tbody = document.getElementById('vendorsList');
+            if (!vendors || !vendors.length) {
+                tbody.innerHTML = '<tr><td colspan="8">No vendors found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = vendors.map(vendor => {
+                const status = vendor.is_suspended ? 'suspended' : 'active';
+                const statusText = vendor.is_suspended ? 'Suspended' : 'Active';
+                const statusClass = vendor.is_suspended ? 'status-suspended' : 'status-active';
+                
+                return `
+                    <tr>
+                        <td>${vendor.id}</td>
+                        <td><strong>${escapeHtml(vendor.business_name)}</strong></td>
+                        <td>${escapeHtml(vendor.owner_name)}</td>
+                        <td><small>${escapeHtml(vendor.email)}</small></td>
+                        <td>${escapeHtml(vendor.phone)}</td>
+                        <td><span class="vendor-status ${statusClass}">${statusText}</span></td>
+                        <td>${vendor.total_orders || 0}</td>
+                        <td>
+                            <button class="btn-small ${vendor.is_suspended ? 'btn-unsuspend' : 'btn-suspend'}" 
+                                    onclick="toggleVendor(${vendor.id}, ${vendor.is_suspended})">
+                                ${vendor.is_suspended ? 'Unsuspend' : 'Suspend'}
+                            </button>
+                            <button class="btn-small btn-view" onclick="viewVendorDetails(${vendor.id})">
+                                View
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        async function toggleVendor(vendorId, currentlySuspended) {
+            const newStatus = currentlySuspended ? 0 : 1;
+            const action = newStatus ? 'suspend' : 'unsuspend';
+            
+            if (confirm(`Are you sure you want to ${action} this vendor?`)) {
+                try {
+                    const response = await fetch('/api/admin/toggle-vendor', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vendor_id: vendorId, is_suspended: newStatus })
+                    });
+                    
+                    if (response.ok) {
+                        showAlert(`Vendor ${action}ed successfully`, 'success');
+                        loadVendors();
+                        loadStats();
+                    } else {
+                        showAlert('Failed to update vendor status', 'error');
+                    }
+                } catch (err) {
+                    showAlert('Network error', 'error');
+                }
+            }
+        }
+        
+        function viewVendorDetails(vendorId) {
+            const vendor = allVendors.find(v => v.id === vendorId);
+            if (vendor) {
+                alert(`Business: ${vendor.business_name}\nOwner: ${vendor.owner_name}\nEmail: ${vendor.email}\nPhone: ${vendor.phone}\nJoined: ${vendor.created_at}\nStatus: ${vendor.is_suspended ? 'Suspended' : 'Active'}`);
+            }
+        }
+        
+        async function loadOrders() {
+            try {
+                const response = await fetch('/api/admin/orders');
+                const orders = await response.json();
+                renderOrders(orders);
+            } catch (err) {
+                console.error('Error loading orders:', err);
+                document.getElementById('ordersList').innerHTML = '<tr><td colspan="7">Error loading orders</td></tr>';
+            }
+        }
+        
+        function renderOrders(orders) {
+            const tbody = document.getElementById('ordersList');
+            if (!orders || !orders.length) {
+                tbody.innerHTML = '<tr><td colspan="7">No orders found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = orders.map(order => `
+                <tr>
+                    <td><code>${escapeHtml(order.order_number)}</code></td>
+                    <td><strong>${escapeHtml(order.vendor_name)}</strong></td>
+                    <td>${escapeHtml(order.customer_name || 'Anonymous')}</td>
+                    <td>$${parseFloat(order.total).toFixed(2)}</td>
+                    <td>${order.payment_method}</td>
+                    <td><span class="vendor-status status-${order.status}">${order.status}</span></td>
+                    <td><small>${new Date(order.created_at).toLocaleString()}</small></td>
+                </tr>
+            `).join('');
+        }
+        
+        function loadAnalytics() {
+            const container = document.getElementById('analyticsContent');
+            container.innerHTML = `
+                <div style="padding: 20px; background: #f9f9f9; border-radius: 8px;">
+                    <h3 style="margin-bottom: 15px;">📈 Platform Growth</h3>
+                    <p><strong>Total Vendors:</strong> ${document.getElementById('totalVendors').textContent}</p>
+                    <p><strong>Active Vendors:</strong> ${document.getElementById('activeVendors').textContent}</p>
+                    <p><strong>Total Orders:</strong> ${document.getElementById('totalOrders').textContent}</p>
+                    <p><strong>Card vs Cash:</strong> ${document.getElementById('cardOrders').textContent} / ${document.getElementById('cashOrders').textContent}</p>
+                    <hr style="margin: 20px 0;">
+                    <h3 style="margin-bottom: 15px;">💡 Recommendations</h3>
+                    <ul style="margin-left: 20px;">
+                        <li>Reach out to inactive vendors to understand their challenges</li>
+                        <li>Promote card payments to increase digital transactions</li>
+                        <li>Consider adding subscription plans for premium features</li>
+                    </ul>
+                </div>
+            `;
+        }
+        
+        // Search vendors
+        document.getElementById('vendorSearch')?.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allVendors.filter(v => 
+                v.business_name.toLowerCase().includes(searchTerm) || 
+                v.email.toLowerCase().includes(searchTerm) ||
+                v.owner_name.toLowerCase().includes(searchTerm)
+            );
+            renderVendors(filtered);
+        });
+        
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 3000);
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+                
+                // Load data when tab is clicked
+                if (tabName === 'orders') loadOrders();
+                if (tabName === 'analytics') loadAnalytics();
+            });
+        });
+        
+        // Initial load
+        loadStats();
+        loadVendors();
+        loadOrders();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            loadStats();
+            if (document.querySelector('.tab.active').dataset.tab === 'vendors') loadVendors();
+            if (document.querySelector('.tab.active').dataset.tab === 'orders') loadOrders();
+        }, 30000);
+    </script>
+</body>
+</html>

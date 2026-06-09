@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - KheZwo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 450px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .logo {
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #1a1a2e;
+            margin-bottom: 10px;
+        }
+        
+        .badge {
+            text-align: center;
+            background: #f0f0f0;
+            display: inline-block;
+            width: auto;
+            margin: 0 auto 20px;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .badge-container {
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #1a1a2e;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .back-link a {
+            color: #1a1a2e;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        
+        .warning p {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        .warning strong {
+            color: #e65100;
+        }
+        
+        .credentials {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 13px;
+            text-align: center;
+        }
+        
+        .credentials p {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        .credentials code {
+            background: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            .card {
+                padding: 25px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">KheZwo</div>
+            <div class="badge-container">
+                <div class="badge">🔒 ADMIN PORTAL</div>
+            </div>
+            <h1>Administrator Login</h1>
+            <div class="subtitle">Platform management access</div>
+            
+            <div id="errorMsg" class="error"></div>
+            
+            <div class="warning">
+                <p>⚠️ <strong>Restricted Area</strong></p>
+                <p>This portal is for KheZwo platform administrators only.</p>
+                <p>Vendors should use the <a href="/vendor-login.html" style="color:#667eea">Vendor Login</a> instead.</p>
+            </div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Admin Username</label>
+                    <input type="text" id="username" required placeholder="Enter admin username">
+                </div>
+                
+                <div class="form-group">
+                    <label>Admin Password</label>
+                    <input type="password" id="password" required placeholder="Enter admin password">
+                </div>
+                
+                <button type="submit" class="btn" id="loginBtn">Access Admin Panel →</button>
+            </form>
+            
+            <div class="back-link">
+                <a href="/">← Back to KheZwo Home</a>
+            </div>
+            
+            <div class="credentials">
+                <p>📋 <strong>Default Admin Credentials</strong></p>
+                <p>Username: <code>khezwo_admin</code></p>
+                <p>Password: <code>khezwo123</code></p>
+                <p style="font-size: 11px; margin-top: 8px; color: #999;">⚠️ Change these credentials after first login for security</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('loginForm');
+        const errorMsg = document.getElementById('errorMsg');
+        const loginBtn = document.getElementById('loginBtn');
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            errorMsg.style.display = 'none';
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showError('Please enter both username and password');
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            
+            try {
+                const response = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    // Redirect to admin dashboard
+                    window.location.href = data.redirect;
+                } else {
+                    showError(data.error || 'Invalid admin credentials. Access denied.');
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Access Admin Panel →';
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                showError('Network error. Please check if the server is running.');
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Access Admin Panel →';
+            }
+        });
+        
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            setTimeout(() => {
+                errorMsg.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
