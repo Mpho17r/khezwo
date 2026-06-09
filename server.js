@@ -1,3 +1,5 @@
+// Wait for database to be ready
+const db = require('./database');
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');

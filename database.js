@@ -1,6 +1,5 @@
 const { Pool } = require('pg');
 
-// Use DATABASE_URL from environment variables
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
@@ -9,6 +8,7 @@ const pool = new Pool({
 });
 
 async function initDatabase() {
+    console.log('🔄 Initializing database...');
     const client = await pool.connect();
     try {
         // Create vendors table
@@ -29,6 +29,7 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        console.log('✅ vendors table ready');
         
         // Create menu_items table
         await client.query(`
@@ -44,6 +45,7 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        console.log('✅ menu_items table ready');
         
         // Create orders table
         await client.query(`
@@ -60,6 +62,7 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        console.log('✅ orders table ready');
         
         // Create admin_users table
         await client.query(`
@@ -71,6 +74,7 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        console.log('✅ admin_users table ready');
         
         // Create sponsor_ads table
         await client.query(`
@@ -81,6 +85,7 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        console.log('✅ sponsor_ads table ready');
         
         // Create ad_settings table
         await client.query(`
@@ -92,6 +97,7 @@ async function initDatabase() {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        console.log('✅ ad_settings table ready');
         
         // Create default admin user
         const bcrypt = require('bcrypt');
@@ -102,16 +108,17 @@ async function initDatabase() {
             VALUES ('khezwo_admin', $1, 'super_admin')
             ON CONFLICT (username) DO NOTHING
         `, [hashedPassword]);
+        console.log('✅ Default admin user ready');
         
-        console.log('✅ PostgreSQL database ready!');
-        
+        console.log('🎉 All database tables created successfully!');
     } catch (err) {
-        console.error('Database init error:', err.message);
+        console.error('❌ Database init error:', err.message);
     } finally {
         client.release();
     }
 }
 
+// Run initialization
 initDatabase();
 
 module.exports = {
