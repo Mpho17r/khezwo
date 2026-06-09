@@ -25,6 +25,7 @@
         .tab-content.active { display: block; }
         .card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .card h2 { margin-bottom: 20px; font-size: 20px; color: #1a1a2e; }
+        .card h3 { margin: 15px 0 10px 0; color: #333; }
         .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }
@@ -32,13 +33,18 @@
         .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
         .status-active { background: #e8f5e9; color: #2e7d32; }
         .status-suspended { background: #fee; color: #c33; }
-        .status-offline { background: #f5f5f5; color: #999; }
         .btn-small { padding: 5px 10px; font-size: 12px; margin: 0 2px; cursor: pointer; border: none; border-radius: 4px; }
         .btn-suspend { background: #ff9800; color: white; }
         .btn-unsuspend { background: #4caf50; color: white; }
         .btn-view { background: #2196f3; color: white; }
+        .btn-add { background: #667eea; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; }
         .search-box { margin-bottom: 20px; }
         .search-box input { width: 100%; max-width: 300px; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .form-group input { width: 100%; max-width: 400px; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; }
+        .sponsor-item { background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .delete-sponsor { background: #fee; color: #c33; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
         @media (max-width: 768px) {
             .stats-container { grid-template-columns: repeat(2, 1fr); padding: 15px; }
             .tabs { padding: 0 15px; }
@@ -68,11 +74,13 @@
         <button class="tab active" data-tab="vendors">🏪 All Vendors</button>
         <button class="tab" data-tab="orders">📋 All Orders</button>
         <button class="tab" data-tab="analytics">📊 Analytics</button>
+        <button class="tab" data-tab="ads">💰 Ad Management</button>
     </div>
     
     <div class="content">
         <div id="alert" class="alert" style="display:none; padding:12px; border-radius:8px; margin-bottom:20px;"></div>
         
+        <!-- Vendors Tab -->
         <div id="vendors-tab" class="tab-content active">
             <div class="card">
                 <h2>All Registered Vendors</h2>
@@ -82,7 +90,7 @@
                 <div class="table-container">
                     <table>
                         <thead>
-                            <tr><th>ID</th><th>Business</th><th>Owner</th><th>Email</th><th>Phone</th><th>Status</th><th>Orders</th><th>Joined</th><th>Actions</th</tr>
+                            <tr><th>ID</th><th>Business</th><th>Owner</th><th>Email</th><th>Phone</th><th>Status</th><th>Orders</th><th>Joined</th><th>Actions</th></tr>
                         </thead>
                         <tbody id="vendorsList">
                             <tr><td colspan="9">Loading all vendors...</td></tr>
@@ -92,6 +100,7 @@
             </div>
         </div>
         
+        <!-- Orders Tab -->
         <div id="orders-tab" class="tab-content">
             <div class="card">
                 <h2>All Platform Orders</h2>
@@ -104,10 +113,56 @@
             </div>
         </div>
         
+        <!-- Analytics Tab -->
         <div id="analytics-tab" class="tab-content">
             <div class="card">
                 <h2>Platform Insights</h2>
                 <div id="analyticsContent">Loading...</div>
+            </div>
+        </div>
+        
+        <!-- Ads Tab -->
+        <div id="ads-tab" class="tab-content">
+            <div class="card">
+                <h2>💰 Ad Revenue Dashboard</h2>
+                
+                <h3>📢 Sponsor Ads (Sell Directly)</h3>
+                <p>Sell ad space to local businesses for $50-200/month. They get visibility on customer menus.</p>
+                <div id="sponsorAdsList"></div>
+                <button class="btn-add" onclick="addSponsorAd()">+ Add Sponsor Ad</button>
+                
+                <hr style="margin: 30px 0;">
+                
+                <h3>🔧 Google AdSense Configuration</h3>
+                <p>Once approved, paste your AdSense details below.</p>
+                <form id="adsenseForm">
+                    <div class="form-group">
+                        <label>AdSense Publisher ID (ca-pub-xxx)</label>
+                        <input type="text" id="adsenseClient" placeholder="ca-pub-xxxxxxxxxxxxx">
+                    </div>
+                    <div class="form-group">
+                        <label>Top Banner Ad Slot</label>
+                        <input type="text" id="topSlot" placeholder="1234567890">
+                    </div>
+                    <div class="form-group">
+                        <label>Middle Ad Slot</label>
+                        <input type="text" id="middleSlot" placeholder="1234567891">
+                    </div>
+                    <button type="submit" class="btn-add">Save Ad Settings</button>
+                </form>
+                
+                <hr style="margin: 30px 0;">
+                
+                <h3>📚 How to Earn Money</h3>
+                <ul style="margin-left: 20px; line-height: 1.8;">
+                    <li><strong>Google AdSense:</strong> Get paid per 1,000 views (CPM $5-15). Apply at <a href="https://adsense.google.com" target="_blank">adsense.google.com</a></li>
+                    <li><strong>Direct Sponsors:</strong> Contact local restaurants, food suppliers, delivery services. Charge $50-200/month.</li>
+                    <li><strong>Affiliate Marketing:</strong> Promote UberEats, DoorDash, or food suppliers for commission.</li>
+                </ul>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 8px;">
+                    <strong>💡 Pro Tip:</strong> Start with direct sponsors while waiting for AdSense approval. One sponsor at $50/month covers your hosting costs!
+                </div>
             </div>
         </div>
     </div>
@@ -211,9 +266,9 @@
                     <td><code>${escapeHtml(order.order_number)}</code></td>
                     <td><strong>${escapeHtml(order.vendor_name)}</strong></td>
                     <td>${escapeHtml(order.customer_name || 'Anonymous')}</td>
-                    <td>$${parseFloat(order.total).toFixed(2)}</td>
+                    <td>R${parseFloat(order.total).toFixed(2)}</td>
                     <td>${order.payment_method}</td>
-                    <td><span class="status-badge status-${order.status}">${order.status}</span></td>
+                    <td><span class="status-badge">${order.status}</span></td>
                     <td><small>${new Date(order.created_at).toLocaleString()}</small></td>
                 </tr>`).join('');
             } catch (err) {
@@ -240,6 +295,95 @@
                 </div>
             `;
         }
+        
+        // Ad Management Functions
+        let sponsorAds = [];
+        
+        async function loadAdSettings() {
+            try {
+                const res = await fetch('/api/admin/ad-settings');
+                const settings = await res.json();
+                if (settings) {
+                    document.getElementById('adsenseClient').value = settings.adsense_client || '';
+                    document.getElementById('topSlot').value = settings.top_slot || '';
+                    document.getElementById('middleSlot').value = settings.middle_slot || '';
+                }
+            } catch (err) {
+                console.log('Ad settings not configured yet');
+            }
+            
+            // Load sponsor ads
+            await loadSponsorAds();
+        }
+        
+        async function loadSponsorAds() {
+            try {
+                const res = await fetch('/api/admin/sponsor-ads');
+                sponsorAds = await res.json();
+                renderSponsorAds();
+            } catch (err) {
+                console.log('No sponsor ads yet');
+                document.getElementById('sponsorAdsList').innerHTML = '<p>No sponsor ads yet. Add your first one!</p>';
+            }
+        }
+        
+        function renderSponsorAds() {
+            const container = document.getElementById('sponsorAdsList');
+            if (!sponsorAds || !sponsorAds.length) {
+                container.innerHTML = '<p>No sponsor ads yet. Add your first one!</p>';
+                return;
+            }
+            container.innerHTML = sponsorAds.map(ad => `
+                <div class="sponsor-item">
+                    <div>
+                        <strong>${escapeHtml(ad.name)}</strong><br>
+                        <small>Link: ${escapeHtml(ad.link)}</small>
+                    </div>
+                    <button class="delete-sponsor" onclick="deleteSponsorAd(${ad.id})">Delete</button>
+                </div>
+            `).join('');
+        }
+        
+        async function addSponsorAd() {
+            const name = prompt('Sponsor name (e.g., "Coca-Cola"):');
+            const link = prompt('Link URL (e.g., https://www.coca-cola.com):');
+            if (name && link) {
+                const res = await fetch('/api/admin/add-sponsor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, link })
+                });
+                if (res.ok) {
+                    showAlert('Sponsor ad added!', 'success');
+                    loadSponsorAds();
+                }
+            }
+        }
+        
+        async function deleteSponsorAd(id) {
+            if (confirm('Delete this sponsor ad?')) {
+                await fetch(`/api/admin/delete-sponsor/${id}`, { method: 'DELETE' });
+                showAlert('Sponsor ad deleted', 'success');
+                loadSponsorAds();
+            }
+        }
+        
+        // Save AdSense settings
+        document.getElementById('adsenseForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch('/api/admin/ad-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    adsense_client: document.getElementById('adsenseClient').value,
+                    top_slot: document.getElementById('topSlot').value,
+                    middle_slot: document.getElementById('middleSlot').value
+                })
+            });
+            if (res.ok) {
+                showAlert('Ad settings saved!', 'success');
+            }
+        });
         
         document.getElementById('vendorSearch')?.addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase();
@@ -274,6 +418,7 @@
                 document.getElementById(`${tabName}-tab`).classList.add('active');
                 if (tabName === 'orders') loadOrders();
                 if (tabName === 'analytics') loadAnalytics();
+                if (tabName === 'ads') loadAdSettings();
             });
         });
         
