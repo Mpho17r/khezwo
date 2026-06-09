@@ -70,6 +70,19 @@ app.post('/vendor/signup', async (req, res) => {
     }
 });
 
+// Vendor notification settings (store push subscription)
+app.post('/api/vendor/save-push-subscription', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const { subscription } = req.body;
+    
+    await db.query(`
+        UPDATE vendors SET push_subscription = $1 WHERE id = $2
+    `, [JSON.stringify(subscription), req.session.vendor.id]);
+    
+    res.json({ success: true });
+});
+
 // Vendor Login
 app.post('/vendor/login', (req, res) => {
     const { email, password } = req.body;
@@ -295,25 +308,38 @@ app.get('/api/menu/:vendorId', (req, res) => {
     });
 });
 
-// Place order
-app.post('/api/place-order', (req, res) => {
+// Place order with push notification
+app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
     
     const orderNumber = 'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     
-    db.run(`INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [vendor_id, orderNumber, customer_name, customer_phone, JSON.stringify(items), total, payment_method],
-        function(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true, order_number: orderNumber });
-        });
-});
-
-app.listen(PORT, () => {
-    console.log(`\n✅ KheZwo is running!`);
-    console.log(`📍 http://localhost:${PORT}`);
-    console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
-    console.log(`\n📋 Admin: username "khezwo_admin" | password "khezwo123"`);
-    console.log(`🎉 Ready to go!\n`);
+    try {
+        await db.query(
+            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+            [vendor_id, orderNumber, customer_name, customer_phone, JSON.stringify(items), total, payment_method]
+        );
+        
+        // Get vendor info for notification
+        const vendorResult = await db.query(`SELECT email, business_name, push_subscription FROM vendors WHERE id = $1`, [vendor_id]);
+        
+        if (vendorResult.rows.length > 0) {
+            const vendor = vendorResult.rows[0];
+            
+            // Send email notification
+            await sendEmail(
+                vendor.email,
+                `🆕 New Order #${orderNumber} - ${vendor.business_name}`,
+                `<h2>New Order!</h2><p><strong>Order #:</strong> ${orderNumber}</p><p><strong>Customer:</strong> ${customer_name || 'Anonymous'}</p><p><strong>Total:</strong> R${parseFloat(total).toFixed(2)}</p><a href="${getBaseUrl()}/vendor-login.html">View Order</a>`
+            );
+            
+            // TODO: Send push notification if subscription exists
+            // We'll add this after setting up VAPID keys
+        }
+        
+        res.json({ success: true, order_number: orderNumber });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
