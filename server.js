@@ -5,10 +5,16 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
 const qrcode = require('qrcode');
-const db = require('./database');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// PostgreSQL connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
 // Ensure uploads folder exists
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
@@ -30,31 +36,16 @@ app.use(session({
     cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
-// Email configuration (if you have nodemailer)
-let sendEmail = async (to, subject, html) => {
-    console.log(`Email would be sent to ${to}: ${subject}`);
-    // Uncomment and configure if you have nodemailer set up
-    /*
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-        }
-    });
-    await transporter.sendMail({ from: process.env.EMAIL_USER, to, subject, html });
-    */
-};
-
 const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${PORT}`;
+
+// Helper for queries
+const query = (text, params) => pool.query(text, params);
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ============= VENDOR ROUTES =============
-
+// Vendor Signup
 app.post('/vendor/signup', async (req, res) => {
     const { business_name, owner_name, email, phone, password } = req.body;
     
@@ -65,40 +56,49 @@ app.post('/vendor/signup', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        db.run(`INSERT INTO vendors (business_name, owner_name, email, phone, password, created_at) 
-                VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-            [business_name, owner_name, email, phone, hashedPassword],
-            function(err) {
-                if (err) {
-                    if (err.message.includes('UNIQUE')) {
-                        return res.status(400).json({ error: 'Email already registered' });
-                    }
-                    return res.status(500).json({ error: err.message });
-                }
-                
-                const baseUrl = getBaseUrl();
-                const qrUrl = `${baseUrl}/menu/${this.lastID}`;
-                qrcode.toFile(`./uploads/qr_${this.lastID}.png`, qrUrl, () => {});
-                
-                res.json({ success: true, vendor_id: this.lastID });
-            });
+        const result = await query(
+            `INSERT INTO vendors (business_name, owner_name, email, phone, password, created_at) 
+             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING id`,
+            [business_name, owner_name, email, phone, hashedPassword]
+        );
+        
+        const vendorId = result.rows[0].id;
+        const baseUrl = getBaseUrl();
+        const qrUrl = `${baseUrl}/menu/${vendorId}`;
+        qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, () => {});
+        
+        res.json({ success: true, vendor_id: vendorId });
     } catch (err) {
+        if (err.constraint === 'vendors_email_key') {
+            return res.status(400).json({ error: 'Email already registered' });
+        }
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/vendor/login', (req, res) => {
+// Vendor Login
+app.post('/vendor/login', async (req, res) => {
     const { email, password } = req.body;
     
-    db.get(`SELECT * FROM vendors WHERE email = ?`, [email], async (err, vendor) => {
-        if (err || !vendor) return res.status(400).json({ error: 'Invalid credentials' });
+    try {
+        const result = await query(`SELECT * FROM vendors WHERE email = $1`, [email]);
         
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+        
+        const vendor = result.rows[0];
         const valid = await bcrypt.compare(password, vendor.password);
-        if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
+        
+        if (!valid) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
         
         req.session.vendor = vendor;
         res.json({ success: true, redirect: '/vendor-dashboard.html' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/vendor/logout', (req, res) => {
@@ -106,35 +106,29 @@ app.get('/vendor/logout', (req, res) => {
     res.redirect('/');
 });
 
-app.get('/api/vendor/data', (req, res) => {
+// Get vendor data
+app.get('/api/vendor/data', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const vendorId = req.session.vendor.id;
     
-    db.get(`SELECT * FROM vendors WHERE id = ?`, [vendorId], (err, vendor) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const vendorResult = await query(`SELECT * FROM vendors WHERE id = $1`, [vendorId]);
+        const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 ORDER BY id DESC`, [vendorId]);
+        const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 AND status != 'completed' ORDER BY created_at DESC`, [vendorId]);
         
-        db.all(`SELECT * FROM menu_items WHERE vendor_id = ? ORDER BY id DESC`, [vendorId], (err, items) => {
-            if (err) return res.status(500).json({ error: err.message });
-            
-            db.all(`SELECT * FROM orders WHERE vendor_id = ? AND status != 'completed' ORDER BY created_at DESC`, [vendorId], (err, orders) => {
-                if (err) return res.status(500).json({ error: err.message });
-                
-                const qrPath = `./uploads/qr_${vendorId}.png`;
-                const qrExists = fs.existsSync(qrPath);
-                
-                res.json({ 
-                    vendor, 
-                    menu_items: items || [], 
-                    orders: orders || [],
-                    qr_exists: qrExists
-                });
-            });
+        res.json({
+            vendor: vendorResult.rows[0],
+            menu_items: itemsResult.rows || [],
+            orders: ordersResult.rows || []
         });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/vendor/regenerate-qr', (req, res) => {
+// Regenerate QR code
+app.get('/api/vendor/regenerate-qr', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const vendorId = req.session.vendor.id;
@@ -143,238 +137,279 @@ app.get('/api/vendor/regenerate-qr', (req, res) => {
     
     qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, (err) => {
         if (err) {
-            console.error('QR generation error:', err);
             return res.status(500).json({ error: 'Failed to generate QR code' });
         }
         res.json({ success: true, qrUrl: `/uploads/qr_${vendorId}.png?t=${Date.now()}` });
     });
 });
 
-app.post('/api/vendor/add-menu-item', upload.single('photo'), (req, res) => {
+// Add menu item
+app.post('/api/vendor/add-menu-item', upload.single('photo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { name, price, description, ingredients } = req.body;
     const photoUrl = req.file ? `/uploads/${req.file.filename}` : null;
     
-    db.run(`INSERT INTO menu_items (vendor_id, name, price, description, ingredients, photo_url, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [req.session.vendor.id, name, price, description, ingredients, photoUrl],
-        function(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
+    try {
+        await query(
+            `INSERT INTO menu_items (vendor_id, name, price, description, ingredients, photo_url, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+            [req.session.vendor.id, name, price, description, ingredients, photoUrl]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/vendor/toggle-availability', (req, res) => {
+// Toggle availability
+app.post('/api/vendor/toggle-availability', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { item_id, is_available } = req.body;
     
-    db.run(`UPDATE menu_items SET is_available = ? WHERE id = ? AND vendor_id = ?`,
-        [is_available, item_id, req.session.vendor.id],
-        (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
+    try {
+        await query(
+            `UPDATE menu_items SET is_available = $1 WHERE id = $2 AND vendor_id = $3`,
+            [is_available, item_id, req.session.vendor.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/vendor/update-profile', upload.single('logo'), (req, res) => {
+// Update profile
+app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { business_name, owner_name, phone, address, is_open, closed_message } = req.body;
     const logoUrl = req.file ? `/uploads/${req.file.filename}` : null;
     
-    let query = `UPDATE vendors SET business_name = ?, owner_name = ?, phone = ?, address = ?, is_open = ?, closed_message = ?`;
-    let params = [business_name, owner_name, phone, address, is_open || 1, closed_message || null];
-    
-    if (logoUrl) {
-        query += `, logo_url = ?`;
-        params.push(logoUrl);
+    try {
+        let queryText = `UPDATE vendors SET business_name = $1, owner_name = $2, phone = $3, address = $4, is_open = $5, closed_message = $6`;
+        let params = [business_name, owner_name, phone, address, is_open || 1, closed_message || null];
+        
+        if (logoUrl) {
+            queryText += `, logo_url = $7 WHERE id = $8`;
+            params.push(logoUrl, req.session.vendor.id);
+        } else {
+            queryText += ` WHERE id = $7`;
+            params.push(req.session.vendor.id);
+        }
+        
+        await query(queryText, params);
+        
+        const result = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
+        req.session.vendor = result.rows[0];
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-    query += ` WHERE id = ?`;
-    params.push(req.session.vendor.id);
-    
-    db.run(query, params, (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        db.get(`SELECT * FROM vendors WHERE id = ?`, [req.session.vendor.id], (err, vendor) => {
-            req.session.vendor = vendor;
-            res.json({ success: true });
-        });
-    });
 });
 
-app.post('/api/vendor/update-order-status', (req, res) => {
+// Update order status
+app.post('/api/vendor/update-order-status', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { order_id, status } = req.body;
     
-    db.run(`UPDATE orders SET status = ? WHERE id = ? AND vendor_id = ?`,
-        [status, order_id, req.session.vendor.id],
-        (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
+    try {
+        await query(
+            `UPDATE orders SET status = $1 WHERE id = $2 AND vendor_id = $3`,
+            [status, order_id, req.session.vendor.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-// ============= ADMIN ROUTES =============
-
-app.post('/admin/login', (req, res) => {
+// Admin login
+app.post('/admin/login', async (req, res) => {
     const { username, password } = req.body;
     
-    db.get(`SELECT * FROM admin_users WHERE username = ?`, [username], async (err, admin) => {
-        if (err || !admin) return res.status(400).json({ error: 'Invalid credentials' });
+    try {
+        const result = await query(`SELECT * FROM admin_users WHERE username = $1`, [username]);
         
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+        
+        const admin = result.rows[0];
         const valid = await bcrypt.compare(password, admin.password);
-        if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
+        
+        if (!valid) {
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
         
         req.session.admin = admin;
         res.json({ success: true, redirect: '/admin-dashboard.html' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/admin/vendors', (req, res) => {
+// Admin APIs
+app.get('/api/admin/vendors', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
-    db.all(`SELECT v.*, (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders 
-            FROM vendors v ORDER BY v.created_at DESC`, [], (err, vendors) => {
-        res.json(vendors || []);
-    });
+    try {
+        const result = await query(`
+            SELECT v.*, (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders 
+            FROM vendors v ORDER BY v.created_at DESC
+        `);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/admin/toggle-vendor', (req, res) => {
+app.post('/api/admin/toggle-vendor', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
     const { vendor_id, is_suspended } = req.body;
     
-    db.run(`UPDATE vendors SET is_suspended = ? WHERE id = ?`,
-        [is_suspended ? 1 : 0, vendor_id],
-        (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
+    try {
+        await query(`UPDATE vendors SET is_suspended = $1 WHERE id = $2`, [is_suspended ? 1 : 0, vendor_id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/admin/orders', (req, res) => {
+app.get('/api/admin/orders', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
-    db.all(`SELECT o.*, v.business_name as vendor_name 
+    try {
+        const result = await query(`
+            SELECT o.*, v.business_name as vendor_name 
             FROM orders o JOIN vendors v ON o.vendor_id = v.id 
-            ORDER BY o.created_at DESC LIMIT 100`, [], (err, orders) => {
-        res.json(orders || []);
-    });
+            ORDER BY o.created_at DESC LIMIT 100
+        `);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/admin/stats', (req, res) => {
+app.get('/api/admin/stats', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
-    // Get suspended vendors count
-    db.get(`SELECT 
-            (SELECT COUNT(*) FROM vendors) as total_vendors,
-            (SELECT COUNT(*) FROM vendors WHERE is_suspended = 0) as active_vendors,
-            (SELECT COUNT(*) FROM vendors WHERE is_suspended = 1) as suspended_vendors,
-            (SELECT COUNT(*) FROM orders) as total_orders`,
-        [], (err, stats) => {
-            res.json(stats || { total_vendors: 0, active_vendors: 0, suspended_vendors: 0, total_orders: 0 });
+    try {
+        const totalVendors = await query(`SELECT COUNT(*) FROM vendors`);
+        const activeVendors = await query(`SELECT COUNT(*) FROM vendors WHERE is_suspended = 0`);
+        const suspendedVendors = await query(`SELECT COUNT(*) FROM vendors WHERE is_suspended = 1`);
+        const totalOrders = await query(`SELECT COUNT(*) FROM orders`);
+        
+        res.json({
+            total_vendors: parseInt(totalVendors.rows[0].count),
+            active_vendors: parseInt(activeVendors.rows[0].count),
+            suspended_vendors: parseInt(suspendedVendors.rows[0].count),
+            total_orders: parseInt(totalOrders.rows[0].count)
         });
+    } catch (err) {
+        res.json({ total_vendors: 0, active_vendors: 0, suspended_vendors: 0, total_orders: 0 });
+    }
 });
 
-// ============= AD MANAGEMENT ROUTES =============
-
-app.get('/api/admin/sponsor-ads', (req, res) => {
+// Ad Management endpoints
+app.get('/api/admin/sponsor-ads', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
-    db.all(`SELECT * FROM sponsor_ads ORDER BY id DESC`, [], (err, ads) => {
-        res.json(ads || []);
-    });
+    const result = await query(`SELECT * FROM sponsor_ads ORDER BY id DESC`);
+    res.json(result.rows || []);
 });
 
-app.post('/api/admin/add-sponsor', (req, res) => {
+app.post('/api/admin/add-sponsor', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     const { name, link } = req.body;
     
-    db.run(`INSERT INTO sponsor_ads (name, link) VALUES (?, ?)`, [name, link], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
+    await query(`INSERT INTO sponsor_ads (name, link) VALUES ($1, $2)`, [name, link]);
+    res.json({ success: true });
 });
 
-app.delete('/api/admin/delete-sponsor/:id', (req, res) => {
+app.delete('/api/admin/delete-sponsor/:id', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     const { id } = req.params;
     
-    db.run(`DELETE FROM sponsor_ads WHERE id = ?`, [id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
+    await query(`DELETE FROM sponsor_ads WHERE id = $1`, [id]);
+    res.json({ success: true });
 });
 
-app.get('/api/admin/ad-settings', (req, res) => {
+app.get('/api/admin/ad-settings', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
-    db.get(`SELECT * FROM ad_settings LIMIT 1`, [], (err, settings) => {
-        res.json(settings || {});
-    });
+    const result = await query(`SELECT * FROM ad_settings LIMIT 1`);
+    res.json(result.rows[0] || {});
 });
 
-app.post('/api/admin/ad-settings', (req, res) => {
+app.post('/api/admin/ad-settings', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     const { adsense_client, top_slot, middle_slot } = req.body;
     
-    db.run(`INSERT OR REPLACE INTO ad_settings (id, adsense_client, top_slot, middle_slot, updated_at) 
-            VALUES (1, ?, ?, ?, datetime('now'))`,
-        [adsense_client, top_slot, middle_slot], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
+    await query(`
+        INSERT INTO ad_settings (id, adsense_client, top_slot, middle_slot, updated_at) 
+        VALUES (1, $1, $2, $3, CURRENT_TIMESTAMP)
+        ON CONFLICT (id) DO UPDATE SET 
+            adsense_client = EXCLUDED.adsense_client,
+            top_slot = EXCLUDED.top_slot,
+            middle_slot = EXCLUDED.middle_slot,
+            updated_at = CURRENT_TIMESTAMP
+    `, [adsense_client, top_slot, middle_slot]);
+    res.json({ success: true });
 });
 
-// ============= CUSTOMER ROUTES =============
-
+// Customer menu
 app.get('/menu/:vendorId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'customer-menu.html'));
 });
 
-app.get('/api/menu/:vendorId', (req, res) => {
+app.get('/api/menu/:vendorId', async (req, res) => {
     const vendorId = req.params.vendorId;
     
-    db.get(`SELECT * FROM vendors WHERE id = ?`, [vendorId], (err, vendor) => {
-        if (err || !vendor) return res.status(404).json({ error: 'Vendor not found' });
+    try {
+        const vendorResult = await query(`SELECT * FROM vendors WHERE id = $1`, [vendorId]);
         
-        db.all(`SELECT * FROM menu_items WHERE vendor_id = ? AND is_available = 1 ORDER BY id DESC`, [vendorId], (err, items) => {
-            res.json({
-                vendor: {
-                    id: vendor.id,
-                    business_name: vendor.business_name,
-                    logo_url: vendor.logo_url,
-                    is_open: vendor.is_open,
-                    closed_message: vendor.closed_message
-                },
-                menu_items: items || []
-            });
+        if (vendorResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Vendor not found' });
+        }
+        
+        const vendor = vendorResult.rows[0];
+        const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 AND is_available = 1 ORDER BY id DESC`, [vendorId]);
+        
+        res.json({
+            vendor: {
+                id: vendor.id,
+                business_name: vendor.business_name,
+                logo_url: vendor.logo_url,
+                is_open: vendor.is_open,
+                closed_message: vendor.closed_message
+            },
+            menu_items: itemsResult.rows || []
         });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/place-order', (req, res) => {
+// Place order
+app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
     
     const orderNumber = 'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     
-    db.run(`INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [vendor_id, orderNumber, customer_name, customer_phone, JSON.stringify(items), total, payment_method],
-        function(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            
-            // Get vendor email for notification
-            db.get(`SELECT email, business_name FROM vendors WHERE id = ?`, [vendor_id], (err, vendor) => {
-                if (vendor && vendor.email) {
-                    sendEmail(vendor.email, `New Order #${orderNumber}`, `You have a new order for ${vendor.business_name}. Total: R${total}`);
-                }
-            });
-            
-            res.json({ success: true, order_number: orderNumber });
-        });
+    try {
+        await query(
+            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+            [vendor_id, orderNumber, customer_name, customer_phone, JSON.stringify(items), total, payment_method]
+        );
+        
+        res.json({ success: true, order_number: orderNumber });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.listen(PORT, () => {
