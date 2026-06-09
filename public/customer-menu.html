@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>Menu - KheZwo Ordering</title>
+    
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4298733344119049"
+         crossorigin="anonymous"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8f9fa; color: #333; padding-bottom: 80px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #333; padding-bottom: 80px; }
         
         .vendor-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }
         .vendor-logo { width: 80px; height: 80px; border-radius: 50%; background: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; overflow: hidden; }
@@ -16,15 +21,6 @@
         .closed-banner { background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 14px; }
         
         .menu-section { max-width: 600px; margin: 0 auto; padding: 20px; }
-        
-        /* Ad Containers */
-        .ad-container { text-align: center; margin: 20px auto; padding: 10px; background: #f0f0f0; border-radius: 12px; max-width: 600px; }
-        .ad-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .ad-sponsor { display: inline-block; background: #667eea; color: white; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-size: 14px; font-weight: 600; }
-        .ad-sponsor:hover { background: #5a67d8; }
-        .ad-image { max-width: 100%; border-radius: 8px; cursor: pointer; }
-        .ad-banner { background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); border-radius: 12px; overflow: hidden; }
-        
         .menu-item { background: white; border-radius: 12px; margin-bottom: 16px; padding: 16px; display: flex; gap: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
         .menu-item:hover { transform: translateY(-2px); }
         .menu-item-image { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; background: #f0f0f0; }
@@ -36,7 +32,9 @@
         .add-to-cart { background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 8px; }
         .add-to-cart:disabled { background: #ccc; cursor: not-allowed; }
         
-        /* Cart */
+        .ad-container { text-align: center; margin: 20px auto; padding: 10px; max-width: 600px; background: #f0f0f0; border-radius: 12px; min-height: 100px; }
+        .ad-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        
         .cart-toggle { position: fixed; bottom: 20px; right: 20px; background: #667eea; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 100; font-size: 24px; }
         .cart-count { position: absolute; top: -5px; right: -5px; background: #ff5722; color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .cart-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); padding: 20px; transform: translateY(100%); transition: transform 0.3s; z-index: 200; max-height: 80vh; overflow-y: auto; }
@@ -76,31 +74,9 @@
         const pathParts = window.location.pathname.split('/');
         vendorId = pathParts[pathParts.length - 1];
         
-        // Ad configuration - Replace these with your AdSense ID once approved
-        const ADSENSE_CLIENT = 'ca-pub-XXXXXXXXXXXXXXXX'; // Replace with your AdSense publisher ID
-        const ADSENSE_SLOT_TOP = '1234567890'; // Replace with your ad slot ID for top banner
-        const ADSENSE_SLOT_MIDDLE = '1234567891'; // Replace with your ad slot ID for middle banner
-        
-        // Fallback sponsor ads (for when AdSense isn't approved yet or as backup)
-        // You can sell these directly to local businesses for $50-100/month!
-        const SPONSOR_ADS = [
-            {
-                type: 'sponsor',
-                name: 'Your Ad Here',
-                description: 'Reach hungry customers - Advertise with us',
-                link: '/contact',
-                image: null,
-                color: '#667eea'
-            },
-            {
-                type: 'delivery',
-                name: 'UberEats',
-                description: 'Get delivery commission',
-                link: 'https://www.ubereats.com',
-                image: null,
-                color: '#5FB709'
-            }
-        ];
+        // YOUR AD SENSE CONFIGURATION - ACTIVE!
+        const ADSENSE_CLIENT = 'ca-pub-4298733344119049';
+        const ADSENSE_SLOT = '5119523369';  // Your ad slot number
         
         async function loadMenu() {
             try {
@@ -119,6 +95,17 @@
             }
         }
         
+        function renderAd() {
+            return `
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="${ADSENSE_CLIENT}"
+                     data-ad-slot="${ADSENSE_SLOT}"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+            `;
+        }
+        
         function renderPage() {
             const isOpen = vendorData.is_open === 1;
             
@@ -128,7 +115,7 @@
             
             const closedHtml = !isOpen ? `<div class="closed-banner">⛔ CLOSED: ${vendorData.closed_message || 'Check back later'}</div>` : '';
             
-            // Split menu items into two halves to insert ad in middle
+            // Insert ad in the middle of menu items
             const midPoint = Math.floor(menuItems.length / 2);
             const firstHalf = menuItems.slice(0, midPoint);
             const secondHalf = menuItems.slice(midPoint);
@@ -136,11 +123,12 @@
             const menuHtml = `
                 ${firstHalf.map(item => renderMenuItem(item, !isOpen)).join('')}
                 
-                <!-- In-Menu Ad Banner -->
-                <div class="ad-container" id="middleAd">
+                ${menuItems.length > 2 ? `
+                <div class="ad-container">
                     <div class="ad-label">Advertisement</div>
-                    ${renderAdContent('middle')}
+                    ${renderAd()}
                 </div>
+                ` : ''}
                 
                 ${secondHalf.map(item => renderMenuItem(item, !isOpen)).join('')}
             `;
@@ -152,14 +140,18 @@
                     ${closedHtml}
                 </div>
                 
-                <!-- Top Ad Banner -->
-                <div class="ad-container" id="topAd">
+                <div class="ad-container">
                     <div class="ad-label">Sponsored</div>
-                    ${renderAdContent('top')}
+                    ${renderAd()}
                 </div>
                 
                 <div class="menu-section">
                     ${menuItems.length === 0 ? '<p style="text-align:center;padding:50px;">No menu items available</p>' : menuHtml}
+                </div>
+                
+                <div class="ad-container">
+                    <div class="ad-label">Advertisement</div>
+                    ${renderAd()}
                 </div>
                 
                 <div class="watermark">
@@ -195,13 +187,28 @@
             `;
             
             renderCart();
-            setupAdSense();
+            
+            // Load all AdSense ads
+            if (typeof adsbygoogle !== 'undefined') {
+                try {
+                    // Push multiple times for each ad on the page
+                    (adsbygoogle = window.adsbygoogle || []).push({});
+                    setTimeout(() => {
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                        setTimeout(() => {
+                            (adsbygoogle = window.adsbygoogle || []).push({});
+                        }, 100);
+                    }, 100);
+                } catch(e) {
+                    console.log('AdSense loading...');
+                }
+            }
         }
         
         function renderMenuItem(item, isClosed) {
             return `
                 <div class="menu-item">
-                    ${item.photo_url ? `<img class="menu-item-image" src="${item.photo_url}" alt="${item.name}">` : '<div class="menu-item-image" style="display:flex;align-items:center;justify-content:center;font-size:40px;">🍽️</div>'}
+                    ${item.photo_url ? `<img class="menu-item-image" src="${item.photo_url}" alt="${escapeHtml(item.name)}">` : '<div class="menu-item-image" style="display:flex;align-items:center;justify-content:center;font-size:40px;">🍽️</div>'}
                     <div class="menu-item-info">
                         <div class="menu-item-name">
                             ${escapeHtml(item.name)}
@@ -217,46 +224,6 @@
                     </div>
                 </div>
             `;
-        }
-        
-        function renderAdContent(position) {
-            // If AdSense is configured, use it
-            if (ADSENSE_CLIENT !== 'ca-pub-XXXXXXXXXXXXXXXX') {
-                return `
-                    <ins class="adsbygoogle"
-                         style="display:block"
-                         data-ad-client="${ADSENSE_CLIENT}"
-                         data-ad-slot="${position === 'top' ? ADSENSE_SLOT_TOP : ADSENSE_SLOT_MIDDLE}"
-                         data-ad-format="auto"
-                         data-full-width-responsive="true"></ins>
-                    <script>
-                        (adsbygoogle = window.adsbygoogle || []).push({});
-                    <\/script>
-                `;
-            }
-            
-            // Fallback: Show sponsor ad (you can sell these directly!)
-            const sponsor = SPONSOR_ADS[0];
-            return `
-                <a href="${sponsor.link}" target="_blank" style="text-decoration: none;">
-                    <div style="background: ${sponsor.color}; color: white; padding: 15px; border-radius: 8px; text-align: center;">
-                        <strong style="font-size: 16px;">${sponsor.name}</strong>
-                        <p style="font-size: 12px; margin-top: 5px;">${sponsor.description}</p>
-                        <span style="display: inline-block; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; margin-top: 8px; font-size: 12px;">Learn More →</span>
-                    </div>
-                </a>
-            `;
-        }
-        
-        function setupAdSense() {
-            // Load AdSense script if not already loaded
-            if (ADSENSE_CLIENT !== 'ca-pub-XXXXXXXXXXXXXXXX' && !document.querySelector('script[src*="adsbygoogle.js"]')) {
-                const script = document.createElement('script');
-                script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`;
-                script.crossOrigin = 'anonymous';
-                script.async = true;
-                document.head.appendChild(script);
-            }
         }
         
         function addToCart(id, name, price) {
@@ -391,11 +358,6 @@
                     updateCartUI();
                     closeModal();
                     toggleCart();
-                    
-                    // Track conversion for ads (optional)
-                    if (typeof gtag !== 'undefined') {
-                        gtag('event', 'purchase', { value: total, currency: 'ZAR' });
-                    }
                 } else {
                     alert('Error placing order: ' + (data.error || 'Unknown error'));
                 }
