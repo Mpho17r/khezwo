@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER =============
+// ============= PLACE ORDER (SEQUENTIAL PER VENDOR) =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -166,13 +166,27 @@ app.post('/api/place-order', async (req, res) => {
     }
     
     try {
+        // Get the count of orders for THIS SPECIFIC vendor only
         const countResult = await query(
             `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1`,
             [vendor_id]
         );
         
-        const nextNumber = (parseInt(countResult.rows[0].count) || 0) + 1;
-        const orderNumber = `${vendor_id}-${String(nextNumber).padStart(3, '0')}`;
+        // Get the max order number for this vendor to ensure proper sequencing
+        const maxOrderResult = await query(
+            `SELECT MAX(CAST(order_number AS INTEGER)) as max_num FROM orders WHERE vendor_id = $1 AND order_number ~ '^[0-9]+$'`,
+            [vendor_id]
+        );
+        
+        let nextNumber;
+        if (maxOrderResult.rows[0].max_num) {
+            nextNumber = maxOrderResult.rows[0].max_num + 1;
+        } else {
+            nextNumber = 1;
+        }
+        
+        // Format as 3-digit with leading zeros (001, 002, 003...)
+        const orderNumber = String(nextNumber).padStart(3, '0');
         
         const result = await query(
             `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
@@ -181,7 +195,7 @@ app.post('/api/place-order', async (req, res) => {
             [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
         );
         
-        console.log(`✅ New order: ${orderNumber} for vendor ${vendor_id}`);
+        console.log(`✅ New order: #${orderNumber} for vendor ${vendor_id}`);
         
         res.json({ 
             success: true, 
@@ -191,28 +205,7 @@ app.post('/api/place-order', async (req, res) => {
         
     } catch (err) {
         console.error('Place order error:', err);
-        
-        if (err.code === '23505') {
-            try {
-                const fallbackNumber = `ORD-${vendor_id}-${Date.now()}`;
-                const result = await query(
-                    `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', CURRENT_TIMESTAMP)
-                     RETURNING id, order_number`,
-                    [vendor_id, fallbackNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
-                );
-                
-                res.json({ 
-                    success: true, 
-                    order_number: result.rows[0].order_number,
-                    order_id: result.rows[0].id
-                });
-            } catch (fallbackErr) {
-                res.status(500).json({ error: 'Failed to place order. Please try again.' });
-            }
-        } else {
-            res.status(500).json({ error: err.message });
-        }
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -274,6 +267,51 @@ app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) =
         
         const result = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
         req.session.vendor = result.rows[0];
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Upload background image
+app.post('/api/vendor/upload-background', upload.single('background'), async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    const backgroundUrl = `/uploads/${req.file.filename}`;
+    
+    try {
+        await query(
+            `UPDATE vendors SET background_image = $1 WHERE id = $2`,
+            [backgroundUrl, req.session.vendor.id]
+        );
+        
+        // Update session
+        const result = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
+        req.session.vendor = result.rows[0];
+        
+        res.json({ success: true, background_url: backgroundUrl });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Remove background image
+app.post('/api/vendor/remove-background', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    try {
+        await query(
+            `UPDATE vendors SET background_image = NULL WHERE id = $1`,
+            [req.session.vendor.id]
+        );
+        
+        const result = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
+        req.session.vendor = result.rows[0];
+        
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -473,10 +511,8 @@ app.post('/api/setup-admin', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Delete existing admin(s)
         await query(`DELETE FROM admin_users`);
         
-        // Create new admin
         await query(
             `INSERT INTO admin_users (username, password, role) VALUES ($1, $2, 'super_admin')`,
             [username, hashedPassword]
@@ -626,6 +662,7 @@ app.get('/api/menu/:vendorId', async (req, res) => {
                 id: vendor.id,
                 business_name: vendor.business_name,
                 logo_url: vendor.logo_url,
+                background_image: vendor.background_image,
                 is_open: vendor.is_open,
                 closed_message: vendor.closed_message
             },
@@ -642,6 +679,6 @@ app.listen(PORT, () => {
     console.log(`\n✅ KheZwo is running!`);
     console.log(`📍 http://localhost:${PORT}`);
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
-    console.log(`\n📋 Admin setup page: /setup-admin.html`);
+    console.log(`\n📋 Admin: Use your custom credentials`);
     console.log(`🎉 Ready to go!\n`);
 });
