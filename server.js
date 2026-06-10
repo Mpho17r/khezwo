@@ -672,3 +672,19 @@ app.listen(PORT, () => {
     console.log(`\n📋 Admin: Use your custom credentials`);
     console.log(`🎉 Ready to go!\n`);
 });
+// TEMPORARY: Fix duplicate constraint issue (remove after running once)
+app.get('/api/fix-database', async (req, res) => {
+    try {
+        // Drop the unique constraint
+        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key`);
+        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key1`);
+        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key2`);
+        
+        // Add background_image column if missing
+        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT`);
+        
+        res.json({ success: true, message: 'Database fixed! Unique constraint removed.' });
+    } catch (err) {
+        res.json({ error: err.message });
+    }
+});
