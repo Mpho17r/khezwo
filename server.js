@@ -712,4 +712,16 @@ app.listen(PORT, () => {
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
     console.log(`\n📋 Admin: Use your custom credentials`);
     console.log(`🎉 Ready to go!\n`);
+});// Debug endpoint to check orders
+app.get('/api/check-orders/:vendorId', async (req, res) => {
+    const vendorId = req.params.vendorId;
+    try {
+        const orders = await query(
+            'SELECT id, order_number, created_at FROM orders WHERE vendor_id = $1 ORDER BY created_at DESC LIMIT 10',
+            [vendorId]
+        );
+        res.json(orders.rows);
+    } catch (err) {
+        res.json({ error: err.message });
+    }
 });
