@@ -1,5 +1,3 @@
-// Wait for database to be ready
-const db = require('./database');
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -47,7 +45,8 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Vendor Signup
+// ============= VENDOR AUTH =============
+
 app.post('/vendor/signup', async (req, res) => {
     const { business_name, owner_name, email, phone, password } = req.body;
     
@@ -78,7 +77,6 @@ app.post('/vendor/signup', async (req, res) => {
     }
 });
 
-// Vendor Login
 app.post('/vendor/login', async (req, res) => {
     const { email, password } = req.body;
     
@@ -108,7 +106,8 @@ app.get('/vendor/logout', (req, res) => {
     res.redirect('/');
 });
 
-// Get vendor data
+// ============= VENDOR DATA =============
+
 app.get('/api/vendor/data', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -129,7 +128,21 @@ app.get('/api/vendor/data', async (req, res) => {
     }
 });
 
-// Regenerate QR code
+app.get('/api/vendor/qr-code', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorId = req.session.vendor.id;
+    const baseUrl = getBaseUrl();
+    const qrUrl = `${baseUrl}/menu/${vendorId}`;
+    
+    try {
+        const qrBase64 = await qrcode.toDataURL(qrUrl);
+        res.json({ success: true, qrBase64: qrBase64 });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to generate QR code' });
+    }
+});
+
 app.get('/api/vendor/regenerate-qr', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -141,11 +154,126 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
         if (err) {
             return res.status(500).json({ error: 'Failed to generate QR code' });
         }
-        res.json({ success: true, qrUrl: `/uploads/qr_${vendorId}.png?t=${Date.now()}` });
+        res.json({ success: true });
     });
 });
 
-// Add menu item
+// ============= VENDOR ORDER HISTORY =============
+
+app.get('/api/vendor/order-history', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorId = req.session.vendor.id;
+    const { search, date } = req.query;
+    
+    try {
+        let queryText = `SELECT * FROM orders WHERE vendor_id = $1 AND status = 'completed'`;
+        let params = [vendorId];
+        let paramCount = 2;
+        
+        if (search) {
+            queryText += ` AND (order_number ILIKE $${paramCount} OR customer_name ILIKE $${paramCount})`;
+            params.push(`%${search}%`);
+            paramCount++;
+        }
+        
+        if (date) {
+            queryText += ` AND DATE(created_at) = $${paramCount}`;
+            params.push(date);
+            paramCount++;
+        }
+        
+        queryText += ` ORDER BY created_at DESC LIMIT 200`;
+        
+        const result = await query(queryText, params);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============= VENDOR ANALYTICS =============
+
+app.get('/api/vendor/analytics', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorId = req.session.vendor.id;
+    const { period } = req.query;
+    
+    let interval = "30 days";
+    if (period === 'day') interval = "1 day";
+    if (period === 'week') interval = "7 days";
+    if (period === 'month') interval = "30 days";
+    
+    try {
+        // Total sales and orders
+        const totals = await query(`
+            SELECT 
+                COALESCE(SUM(total), 0) as total_sales,
+                COUNT(*) as total_orders,
+                COALESCE(AVG(total), 0) as avg_order_value,
+                SUM((SELECT SUM((value->>'quantity')::int) FROM jsonb_array_elements(items_json) as value)) as total_items_sold
+            FROM orders 
+            WHERE vendor_id = $1 AND status = 'completed' AND created_at > NOW() - INTERVAL '${interval}'
+        `, [vendorId]);
+        
+        // Top selling items
+        const topItems = await query(`
+            SELECT 
+                value->>'name' as name,
+                SUM((value->>'quantity')::int) as count,
+                SUM(((value->>'quantity')::int) * (value->>'price')::float) as revenue
+            FROM orders o, jsonb_array_elements(o.items_json) as value
+            WHERE o.vendor_id = $1 AND o.status = 'completed' AND o.created_at > NOW() - INTERVAL '${interval}'
+            GROUP BY value->>'name'
+            ORDER BY count DESC
+            LIMIT 5
+        `, [vendorId]);
+        
+        // Daily sales for chart
+        const dailySales = await query(`
+            SELECT 
+                DATE(created_at) as date,
+                COALESCE(SUM(total), 0) as total
+            FROM orders 
+            WHERE vendor_id = $1 AND status = 'completed' AND created_at > NOW() - INTERVAL '${interval}'
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        `, [vendorId]);
+        
+        // Format daily sales for chart
+        const formattedDailySales = dailySales.rows.map(row => ({
+            date: new Date(row.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+            total: parseFloat(row.total)
+        }));
+        
+        res.json({
+            total_sales: parseFloat(totals.rows[0].total_sales),
+            total_orders: parseInt(totals.rows[0].total_orders),
+            avg_order_value: parseFloat(totals.rows[0].avg_order_value),
+            total_items_sold: parseInt(totals.rows[0].total_items_sold || 0),
+            top_items: topItems.rows.map(item => ({
+                name: item.name,
+                count: parseInt(item.count),
+                revenue: parseFloat(item.revenue)
+            })),
+            daily_sales: formattedDailySales
+        });
+    } catch (err) {
+        console.error('Analytics error:', err);
+        res.json({
+            total_sales: 0,
+            total_orders: 0,
+            avg_order_value: 0,
+            total_items_sold: 0,
+            top_items: [],
+            daily_sales: []
+        });
+    }
+});
+
+// ============= VENDOR MENU MANAGEMENT =============
+
 app.post('/api/vendor/add-menu-item', upload.single('photo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -164,7 +292,6 @@ app.post('/api/vendor/add-menu-item', upload.single('photo'), async (req, res) =
     }
 });
 
-// Toggle availability
 app.post('/api/vendor/toggle-availability', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -181,7 +308,6 @@ app.post('/api/vendor/toggle-availability', async (req, res) => {
     }
 });
 
-// Update profile
 app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -210,7 +336,6 @@ app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) =
     }
 });
 
-// Update order status
 app.post('/api/vendor/update-order-status', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -227,7 +352,8 @@ app.post('/api/vendor/update-order-status', async (req, res) => {
     }
 });
 
-// Admin login
+// ============= ADMIN ROUTES =============
+
 app.post('/admin/login', async (req, res) => {
     const { username, password } = req.body;
     
@@ -252,7 +378,6 @@ app.post('/admin/login', async (req, res) => {
     }
 });
 
-// Admin APIs
 app.get('/api/admin/vendors', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
@@ -315,7 +440,8 @@ app.get('/api/admin/stats', async (req, res) => {
     }
 });
 
-// Ad Management endpoints
+// ============= AD MANAGEMENT ROUTES =============
+
 app.get('/api/admin/sponsor-ads', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
     
@@ -362,7 +488,8 @@ app.post('/api/admin/ad-settings', async (req, res) => {
     res.json({ success: true });
 });
 
-// Customer menu
+// ============= CUSTOMER ROUTES =============
+
 app.get('/menu/:vendorId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'customer-menu.html'));
 });
@@ -395,11 +522,17 @@ app.get('/api/menu/:vendorId', async (req, res) => {
     }
 });
 
-// Place order
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
     
-    const orderNumber = 'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    // Get the current max order number for this vendor to generate sequential order number
+    const maxOrderResult = await query(
+        `SELECT MAX(id) as max_id FROM orders WHERE vendor_id = $1`,
+        [vendor_id]
+    );
+    
+    const nextId = (maxOrderResult.rows[0].max_id || 0) + 1;
+    const orderNumber = String(nextId).padStart(3, '0');
     
     try {
         await query(
