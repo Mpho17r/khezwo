@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Menu - KheZwo Ordering</title>
     
     <!-- Google AdSense -->
@@ -10,53 +13,483 @@
          crossorigin="anonymous"></script>
     
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #333; padding-bottom: 80px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
         
-        .vendor-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }
-        .vendor-logo { width: 80px; height: 80px; border-radius: 50%; background: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; overflow: hidden; }
-        .vendor-logo img { width: 100%; height: 100%; object-fit: cover; }
-        .vendor-logo .no-logo { font-size: 40px; }
-        .vendor-name { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
-        .closed-banner { background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 14px; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f8f9fa;
+            color: #1a1a2e;
+            padding-bottom: 80px;
+            -webkit-font-smoothing: antialiased;
+        }
         
-        .menu-section { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .menu-item { background: white; border-radius: 12px; margin-bottom: 16px; padding: 16px; display: flex; gap: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
-        .menu-item:hover { transform: translateY(-2px); }
-        .menu-item-image { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; background: #f0f0f0; }
-        .menu-item-info { flex: 1; }
-        .menu-item-name { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
-        .menu-item-description { font-size: 13px; color: #666; margin-bottom: 5px; }
-        .menu-item-price { font-size: 18px; font-weight: bold; color: #667eea; }
-        .menu-item-outofstock { display: inline-block; background: #fee; color: #c33; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
-        .add-to-cart { background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 8px; }
-        .add-to-cart:disabled { background: #ccc; cursor: not-allowed; }
+        /* Vendor Header */
+        .vendor-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px 30px;
+            text-align: center;
+            border-radius: 0 0 30px 30px;
+            position: relative;
+            z-index: 1;
+        }
         
-        .ad-container { text-align: center; margin: 20px auto; padding: 10px; max-width: 600px; background: #f0f0f0; border-radius: 12px; min-height: 100px; }
-        .ad-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .vendor-logo {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
         
-        .cart-toggle { position: fixed; bottom: 20px; right: 20px; background: #667eea; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 100; font-size: 24px; }
-        .cart-count { position: absolute; top: -5px; right: -5px; background: #ff5722; color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
-        .cart-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); padding: 20px; transform: translateY(100%); transition: transform 0.3s; z-index: 200; max-height: 80vh; overflow-y: auto; }
-        .cart-panel.open { transform: translateY(0); }
-        .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-        .cart-total { padding: 15px 0; font-size: 18px; font-weight: bold; text-align: right; }
-        .checkout-btn { width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
-        .close-cart { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; }
-        .empty-cart { text-align: center; color: #999; padding: 40px; }
+        .vendor-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
         
-        .watermark { text-align: center; padding: 20px; font-size: 12px; color: #999; }
+        .vendor-logo .no-logo {
+            font-size: 48px;
+        }
         
-        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 300; align-items: center; justify-content: center; }
-        .modal-content { background: white; border-radius: 16px; padding: 30px; max-width: 90%; width: 350px; text-align: center; }
-        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 10px 0; border: 2px solid #e0e0e0; border-radius: 8px; }
+        .vendor-name {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            letter-spacing: -0.5px;
+        }
         
-        .loading { text-align: center; padding: 50px; color: #999; }
+        .vendor-status {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
         
-        @media (max-width: 768px) {
-            .menu-item-image { width: 60px; height: 60px; }
-            .menu-item-name { font-size: 16px; }
+        .status-open {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .status-closed {
+            background: rgba(0,0,0,0.6);
+        }
+        
+        .closed-banner {
+            background: rgba(0,0,0,0.7);
+            padding: 12px;
+            border-radius: 12px;
+            margin-top: 15px;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* Search Bar */
+        .search-container {
+            max-width: 600px;
+            margin: -20px auto 0;
+            padding: 0 20px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .search-box {
+            background: white;
+            border-radius: 30px;
+            padding: 12px 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .search-box span {
+            font-size: 18px;
+        }
+        
+        .search-box input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            background: transparent;
+        }
+        
+        .search-box input::placeholder {
+            color: #999;
+        }
+        
+        /* Ad Container */
+        .ad-container {
+            text-align: center;
+            margin: 20px auto;
+            padding: 10px;
+            max-width: 600px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .ad-label {
+            font-size: 10px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        
+        /* Menu Section */
+        .menu-section {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .category-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin: 20px 0 15px;
+            padding-left: 5px;
+            border-left: 4px solid #667eea;
+        }
+        
+        /* Menu Items - Card Style */
+        .menu-item {
+            background: white;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            padding: 16px;
+            display: flex;
+            gap: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .menu-item:active {
+            transform: scale(0.98);
+        }
+        
+        .menu-item-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            object-fit: cover;
+            background: #f0f0f0;
+        }
+        
+        .menu-item-info {
+            flex: 1;
+        }
+        
+        .menu-item-name {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #1a1a2e;
+        }
+        
+        .menu-item-description {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .menu-item-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .menu-item-outofstock {
+            display: inline-block;
+            background: #fee;
+            color: #e74c3c;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .add-to-cart {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+        
+        .add-to-cart:active {
+            transform: scale(0.95);
+        }
+        
+        .add-to-cart:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* Cart Button */
+        .cart-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            z-index: 100;
+            font-size: 24px;
+            transition: all 0.2s;
+            border: none;
+        }
+        
+        .cart-toggle:active {
+            transform: scale(0.95);
+        }
+        
+        .cart-count {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff5722;
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Cart Panel */
+        .cart-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 25px 25px 0 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            padding: 20px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            z-index: 200;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .cart-panel.open {
+            transform: translateY(0);
+        }
+        
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .cart-header h3 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .close-cart {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 5px;
+        }
+        
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .cart-item-name {
+            font-weight: 600;
+        }
+        
+        .cart-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .cart-item-controls button {
+            width: 30px;
+            height: 30px;
+            border-radius: 15px;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .cart-total {
+            padding: 15px 0;
+            font-size: 20px;
+            font-weight: 700;
+            text-align: right;
+            color: #667eea;
+        }
+        
+        .checkout-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+        
+        .checkout-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .empty-cart {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+        
+        /* Watermark */
+        .watermark {
+            text-align: center;
+            padding: 20px;
+            font-size: 11px;
+            color: #bbb;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 90%;
+            width: 350px;
+            text-align: center;
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 15px;
+        }
+        
+        .modal-content input,
+        .modal-content select {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #999;
+        }
+        
+        /* No Results */
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .cart-toggle.has-items {
+            animation: pulse 0.3s ease;
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .vendor-header {
+                padding: 30px 20px 25px;
+            }
+            
+            .vendor-logo {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .vendor-name {
+                font-size: 22px;
+            }
+            
+            .menu-item-image {
+                width: 65px;
+                height: 65px;
+            }
+            
+            .menu-item-name {
+                font-size: 16px;
+            }
+            
+            .menu-item-price {
+                font-size: 16px;
+            }
         }
     </style>
 </head>
@@ -67,16 +500,13 @@
     
     <script>
         let vendorData = null;
-        let menuItems = [];
+        let allMenuItems = [];
+        let filteredMenuItems = [];
         let cart = [];
         let vendorId = null;
         
         const pathParts = window.location.pathname.split('/');
         vendorId = pathParts[pathParts.length - 1];
-        
-        // YOUR AD SENSE CONFIGURATION - ACTIVE!
-        const ADSENSE_CLIENT = 'ca-pub-4298733344119049';
-        const ADSENSE_SLOT = '5119523369';  // Your ad slot number
         
         async function loadMenu() {
             try {
@@ -85,7 +515,8 @@
                 
                 if (response.ok) {
                     vendorData = data.vendor;
-                    menuItems = data.menu_items;
+                    allMenuItems = data.menu_items;
+                    filteredMenuItems = [...allMenuItems];
                     renderPage();
                 } else {
                     document.getElementById('app').innerHTML = `<div class="loading">Vendor not found</div>`;
@@ -95,15 +526,29 @@
             }
         }
         
-        function renderAd() {
-            return `
-                <ins class="adsbygoogle"
-                     style="display:block"
-                     data-ad-client="${ADSENSE_CLIENT}"
-                     data-ad-slot="${ADSENSE_SLOT}"
-                     data-ad-format="auto"
-                     data-full-width-responsive="true"></ins>
-            `;
+        function filterMenu(searchTerm) {
+            if (!searchTerm.trim()) {
+                filteredMenuItems = [...allMenuItems];
+            } else {
+                const term = searchTerm.toLowerCase();
+                filteredMenuItems = allMenuItems.filter(item => 
+                    item.name.toLowerCase().includes(term) || 
+                    (item.description && item.description.toLowerCase().includes(term))
+                );
+            }
+            renderMenuItems();
+        }
+        
+        function renderMenuItems() {
+            const container = document.querySelector('.menu-items-container');
+            if (!container) return;
+            
+            if (filteredMenuItems.length === 0) {
+                container.innerHTML = '<div class="no-results">No items found</div>';
+                return;
+            }
+            
+            container.innerHTML = filteredMenuItems.map(item => renderMenuItem(item)).join('');
         }
         
         function renderPage() {
@@ -113,59 +558,64 @@
                 ? `<img src="${vendorData.logo_url}" alt="${vendorData.business_name}">`
                 : `<div class="no-logo">🏪</div>`;
             
-            const closedHtml = !isOpen ? `<div class="closed-banner">⛔ CLOSED: ${vendorData.closed_message || 'Check back later'}</div>` : '';
+            const statusHtml = isOpen 
+                ? `<span class="vendor-status status-open">● Open Now</span>`
+                : `<span class="vendor-status status-closed">⛔ Closed</span>`;
             
-            // Insert ad in the middle of menu items
-            const midPoint = Math.floor(menuItems.length / 2);
-            const firstHalf = menuItems.slice(0, midPoint);
-            const secondHalf = menuItems.slice(midPoint);
-            
-            const menuHtml = `
-                ${firstHalf.map(item => renderMenuItem(item, !isOpen)).join('')}
-                
-                ${menuItems.length > 2 ? `
-                <div class="ad-container">
-                    <div class="ad-label">Advertisement</div>
-                    ${renderAd()}
-                </div>
-                ` : ''}
-                
-                ${secondHalf.map(item => renderMenuItem(item, !isOpen)).join('')}
-            `;
+            const closedHtml = !isOpen ? `<div class="closed-banner">${vendorData.closed_message || 'Check back later'}</div>` : '';
             
             document.getElementById('app').innerHTML = `
                 <div class="vendor-header">
                     <div class="vendor-logo">${logoHtml}</div>
                     <div class="vendor-name">${escapeHtml(vendorData.business_name)}</div>
+                    ${statusHtml}
                     ${closedHtml}
+                </div>
+                
+                <div class="search-container">
+                    <div class="search-box">
+                        <span>🔍</span>
+                        <input type="text" id="searchInput" placeholder="Search menu..." autocomplete="off">
+                    </div>
                 </div>
                 
                 <div class="ad-container">
                     <div class="ad-label">Sponsored</div>
-                    ${renderAd()}
+                    <ins class="adsbygoogle"
+                         style="display:block"
+                         data-ad-client="ca-pub-4298733344119049"
+                         data-ad-slot="YOUR_AD_SLOT"
+                         data-ad-format="auto"
+                         data-full-width-responsive="true"></ins>
                 </div>
                 
                 <div class="menu-section">
-                    ${menuItems.length === 0 ? '<p style="text-align:center;padding:50px;">No menu items available</p>' : menuHtml}
+                    <div class="category-title">📋 Menu</div>
+                    <div class="menu-items-container"></div>
                 </div>
                 
                 <div class="ad-container">
                     <div class="ad-label">Advertisement</div>
-                    ${renderAd()}
+                    <ins class="adsbygoogle"
+                         style="display:block"
+                         data-ad-client="ca-pub-4298733344119049"
+                         data-ad-slot="YOUR_AD_SLOT"
+                         data-ad-format="auto"
+                         data-full-width-responsive="true"></ins>
                 </div>
                 
                 <div class="watermark">
                     Powered by KheZwo ⚡
                 </div>
                 
-                <div class="cart-toggle" onclick="toggleCart()">
+                <button class="cart-toggle" onclick="toggleCart()">
                     🛒
                     ${getCartCount() > 0 ? `<div class="cart-count">${getCartCount()}</div>` : ''}
-                </div>
+                </button>
                 
                 <div class="cart-panel" id="cartPanel">
                     <div class="cart-header">
-                        <h3>Your Order</h3>
+                        <h3>Your Order 🛒</h3>
                         <button class="close-cart" onclick="toggleCart()">✕</button>
                     </div>
                     <div id="cartItems"></div>
@@ -180,35 +630,39 @@
                             <option value="cash">Cash (Pay on pickup)</option>
                             <option value="card">Card (Coming soon)</option>
                         </select>
-                        <button onclick="submitOrder()" style="margin-top:15px;padding:10px 20px;background:#667eea;color:white;border:none;border-radius:8px;">Place Order</button>
-                        <button onclick="closeModal()" style="margin-top:10px;background:#ccc;">Cancel</button>
+                        <button onclick="submitOrder()" style="margin-top:15px;padding:12px;background:#667eea;color:white;border:none;border-radius:25px;width:100%;font-weight:600;">Place Order</button>
+                        <button onclick="closeModal()" style="margin-top:10px;padding:10px;background:#ccc;color:#333;border:none;border-radius:25px;width:100%;">Cancel</button>
                     </div>
                 </div>
             `;
             
+            // Render menu items
+            renderMenuItems();
+            
+            // Setup search
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                filterMenu(e.target.value);
+            });
+            
+            // Render cart
             renderCart();
             
-            // Load all AdSense ads
+            // Load AdSense ads
             if (typeof adsbygoogle !== 'undefined') {
                 try {
-                    // Push multiple times for each ad on the page
                     (adsbygoogle = window.adsbygoogle || []).push({});
                     setTimeout(() => {
                         (adsbygoogle = window.adsbygoogle || []).push({});
-                        setTimeout(() => {
-                            (adsbygoogle = window.adsbygoogle || []).push({});
-                        }, 100);
                     }, 100);
-                } catch(e) {
-                    console.log('AdSense loading...');
-                }
+                } catch(e) {}
             }
         }
         
-        function renderMenuItem(item, isClosed) {
+        function renderMenuItem(item) {
+            const isClosed = vendorData.is_open === 0;
             return `
                 <div class="menu-item">
-                    ${item.photo_url ? `<img class="menu-item-image" src="${item.photo_url}" alt="${escapeHtml(item.name)}">` : '<div class="menu-item-image" style="display:flex;align-items:center;justify-content:center;font-size:40px;">🍽️</div>'}
+                    ${item.photo_url ? `<img class="menu-item-image" src="${item.photo_url}" alt="${escapeHtml(item.name)}">` : '<div class="menu-item-image" style="display:flex;align-items:center;justify-content:center;font-size:36px;">🍽️</div>'}
                     <div class="menu-item-info">
                         <div class="menu-item-name">
                             ${escapeHtml(item.name)}
@@ -217,7 +671,7 @@
                         <div class="menu-item-description">${escapeHtml(item.description || '')}</div>
                         <div class="menu-item-price">R${parseFloat(item.price).toFixed(2)}</div>
                         <button class="add-to-cart" 
-                                onclick="addToCart(${item.id}, '${escapeHtml(item.name).replace(/'/g, "\\'")}', ${item.price})"
+                                onclick="event.stopPropagation(); addToCart(${item.id}, '${escapeHtml(item.name).replace(/'/g, "\\'")}', ${item.price})"
                                 ${!item.is_available || isClosed ? 'disabled' : ''}>
                             Add to Cart
                         </button>
@@ -234,6 +688,13 @@
                 cart.push({ id, name, price, quantity: 1 });
             }
             updateCartUI();
+            
+            // Visual feedback
+            const btn = event?.target;
+            if (btn) {
+                btn.style.transform = 'scale(0.95)';
+                setTimeout(() => { btn.style.transform = ''; }, 150);
+            }
         }
         
         function removeFromCart(id) {
@@ -264,8 +725,10 @@
                     } else {
                         toggle.innerHTML += `<div class="cart-count">${cartCount}</div>`;
                     }
+                    toggle.classList.add('has-items');
                 } else if (existingBadge) {
                     existingBadge.remove();
+                    toggle.classList.remove('has-items');
                 }
             }
         }
@@ -275,7 +738,7 @@
             if (!container) return;
             
             if (cart.length === 0) {
-                container.innerHTML = '<div class="empty-cart">Your cart is empty</div>';
+                container.innerHTML = '<div class="empty-cart">Your cart is empty<br>Add some items to get started!</div>';
                 return;
             }
             
@@ -285,18 +748,18 @@
                 ${cart.map(item => `
                     <div class="cart-item">
                         <div>
-                            <strong>${escapeHtml(item.name)}</strong><br>
-                            R${parseFloat(item.price).toFixed(2)} x ${item.quantity}
+                            <div class="cart-item-name">${escapeHtml(item.name)}</div>
+                            <div style="font-size: 14px; color: #667eea;">R${parseFloat(item.price).toFixed(2)}</div>
                         </div>
-                        <div>
-                            <button onclick="removeFromCart(${item.id})" style="background:#fee;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;">−</button>
-                            <span style="margin:0 10px;">${item.quantity}</span>
-                            <button onclick="addToCart(${item.id}, '${escapeHtml(item.name).replace(/'/g, "\\'")}', ${item.price})" style="background:#e8f5e9;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;">+</button>
+                        <div class="cart-item-controls">
+                            <button onclick="removeFromCart(${item.id})">−</button>
+                            <span style="font-weight: 600; min-width: 25px; text-align: center;">${item.quantity}</span>
+                            <button onclick="addToCart(${item.id}, '${escapeHtml(item.name).replace(/'/g, "\\'")}', ${item.price})">+</button>
                         </div>
                     </div>
                 `).join('')}
                 <div class="cart-total">Total: R${total.toFixed(2)}</div>
-                <button class="checkout-btn" onclick="openCheckout()">Proceed to Checkout</button>
+                <button class="checkout-btn" onclick="openCheckout()">Proceed to Checkout →</button>
             `;
         }
         
@@ -357,7 +820,9 @@
                     cart = [];
                     updateCartUI();
                     closeModal();
-                    toggleCart();
+                    if (document.getElementById('cartPanel').classList.contains('open')) {
+                        toggleCart();
+                    }
                 } else {
                     alert('Error placing order: ' + (data.error || 'Unknown error'));
                 }
