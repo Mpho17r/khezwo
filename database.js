@@ -8,7 +8,6 @@ const pool = new Pool({
 });
 
 async function initDatabase() {
-    console.log('🔄 Initializing database...');
     const client = await pool.connect();
     try {
         // Create vendors table
@@ -21,6 +20,7 @@ async function initDatabase() {
                 phone TEXT NOT NULL,
                 password TEXT NOT NULL,
                 logo_url TEXT,
+                background_image TEXT,
                 address TEXT,
                 is_open INTEGER DEFAULT 1,
                 is_suspended INTEGER DEFAULT 0,
@@ -29,7 +29,11 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ vendors table ready');
+        
+        // Add column if it doesn't exist (for existing databases)
+        await client.query(`
+            ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT
+        `);
         
         // Create menu_items table
         await client.query(`
@@ -45,14 +49,13 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ menu_items table ready');
         
         // Create orders table
         await client.query(`
             CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
                 vendor_id INTEGER NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
-                order_number TEXT UNIQUE NOT NULL,
+                order_number TEXT NOT NULL,
                 customer_name TEXT,
                 customer_phone TEXT,
                 items_json TEXT NOT NULL,
@@ -62,7 +65,6 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ orders table ready');
         
         // Create admin_users table
         await client.query(`
@@ -74,7 +76,6 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ admin_users table ready');
         
         // Create sponsor_ads table
         await client.query(`
@@ -85,7 +86,6 @@ async function initDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ sponsor_ads table ready');
         
         // Create ad_settings table
         await client.query(`
@@ -97,9 +97,8 @@ async function initDatabase() {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ ad_settings table ready');
         
-        // Create default admin user
+        // Create default admin user if not exists
         const bcrypt = require('bcrypt');
         const hashedPassword = bcrypt.hashSync('khezwo123', 10);
         
@@ -108,17 +107,17 @@ async function initDatabase() {
             VALUES ('khezwo_admin', $1, 'super_admin')
             ON CONFLICT (username) DO NOTHING
         `, [hashedPassword]);
-        console.log('✅ Default admin user ready');
         
-        console.log('🎉 All database tables created successfully!');
+        console.log('✅ Database tables ready');
+        console.log('   - background_image column added to vendors');
+        
     } catch (err) {
-        console.error('❌ Database init error:', err.message);
+        console.error('Database init error:', err.message);
     } finally {
         client.release();
     }
 }
 
-// Run initialization
 initDatabase();
 
 module.exports = {
