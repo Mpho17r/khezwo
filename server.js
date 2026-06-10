@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER (FIXED - MATCHING ORDER NUMBERS) =============
+// ============= PLACE ORDER =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -166,34 +166,27 @@ app.post('/api/place-order', async (req, res) => {
     }
     
     try {
-        // Get the count of orders for THIS SPECIFIC vendor
         const countResult = await query(
             `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1`,
             [vendor_id]
         );
         
-        // Next number is count + 1
-        const nextNumber = (parseInt(countResult.rows[0].count) || 0) + 1;
-        
-        // Format as 3-digit (001, 002, 003...)
+        const currentCount = parseInt(countResult.rows[0].count) || 0;
+        const nextNumber = currentCount + 1;
         const orderNumber = String(nextNumber).padStart(3, '0');
         
         const result = await query(
             `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', CURRENT_TIMESTAMP)
-             RETURNING id, order_number`,
+             RETURNING order_number`,
             [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
         );
         
-        // Return the SAME order number that was stored
-        const storedOrderNumber = result.rows[0].order_number;
-        
-        console.log(`✅ New order: #${storedOrderNumber} for vendor ${vendor_id}`);
+        console.log(`New order #${result.rows[0].order_number} for vendor ${vendor_id}`);
         
         res.json({ 
             success: true, 
-            order_number: storedOrderNumber,
-            order_id: result.rows[0].id
+            order_number: result.rows[0].order_number
         });
         
     } catch (err) {
@@ -266,7 +259,6 @@ app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) =
     }
 });
 
-// Upload background image
 app.post('/api/vendor/upload-background', upload.single('background'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -291,7 +283,6 @@ app.post('/api/vendor/upload-background', upload.single('background'), async (re
     }
 });
 
-// Remove background image
 app.post('/api/vendor/remove-background', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
@@ -487,8 +478,6 @@ app.post('/admin/login', async (req, res) => {
     }
 });
 
-// ============= ADMIN SETUP ENDPOINT =============
-
 app.post('/api/setup-admin', async (req, res) => {
     const { username, password } = req.body;
     
@@ -510,7 +499,7 @@ app.post('/api/setup-admin', async (req, res) => {
             [username, hashedPassword]
         );
         
-        console.log('✅ Admin account created/updated');
+        console.log('Admin account created/updated');
         res.json({ success: true, message: 'Admin account created' });
     } catch (err) {
         console.error('Setup error:', err);
@@ -665,6 +654,39 @@ app.get('/api/menu/:vendorId', async (req, res) => {
     }
 });
 
+// ============= FIX ORDER NUMBERS ENDPOINT =============
+
+app.get('/api/fix-order-numbers', async (req, res) => {
+    try {
+        const vendors = await query('SELECT id FROM vendors');
+        let details = '';
+        let totalUpdated = 0;
+        
+        for (const vendor of vendors.rows) {
+            const orders = await query(
+                'SELECT id FROM orders WHERE vendor_id = $1 ORDER BY created_at ASC',
+                [vendor.id]
+            );
+            
+            for (let i = 0; i < orders.rows.length; i++) {
+                const seqNumber = String(i + 1).padStart(3, '0');
+                await query('UPDATE orders SET order_number = $1 WHERE id = $2', [seqNumber, orders.rows[i].id]);
+                totalUpdated++;
+            }
+            details += `Vendor ${vendor.id}: ${orders.rows.length} orders updated\n`;
+        }
+        
+        res.json({ 
+            success: true, 
+            message: `All order numbers reset to sequential format! ${totalUpdated} orders updated.`,
+            details: details
+        });
+    } catch (err) {
+        console.error('Fix orders error:', err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
 // ============= FIX DATABASE CONSTRAINTS =============
 
 app.get('/api/fix-database', async (req, res) => {
@@ -674,7 +696,7 @@ app.get('/api/fix-database', async (req, res) => {
         await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key2`);
         await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT`);
         
-        console.log('✅ Database constraint removed');
+        console.log('Database constraint removed');
         res.json({ success: true, message: 'Database fixed! You can now place orders.' });
     } catch (err) {
         console.error('Fix error:', err.message);
