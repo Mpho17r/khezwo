@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER =============
+// ============= PLACE ORDER (FIXED - MATCHING ORDER NUMBERS) =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -166,12 +166,16 @@ app.post('/api/place-order', async (req, res) => {
     }
     
     try {
+        // Get the count of orders for THIS SPECIFIC vendor
         const countResult = await query(
             `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1`,
             [vendor_id]
         );
         
+        // Next number is count + 1
         const nextNumber = (parseInt(countResult.rows[0].count) || 0) + 1;
+        
+        // Format as 3-digit (001, 002, 003...)
         const orderNumber = String(nextNumber).padStart(3, '0');
         
         const result = await query(
@@ -181,11 +185,14 @@ app.post('/api/place-order', async (req, res) => {
             [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
         );
         
-        console.log(`✅ New order: #${result.rows[0].order_number} for vendor ${vendor_id}`);
+        // Return the SAME order number that was stored
+        const storedOrderNumber = result.rows[0].order_number;
+        
+        console.log(`✅ New order: #${storedOrderNumber} for vendor ${vendor_id}`);
         
         res.json({ 
             success: true, 
-            order_number: result.rows[0].order_number,
+            order_number: storedOrderNumber,
             order_id: result.rows[0].id
         });
         
@@ -662,12 +669,9 @@ app.get('/api/menu/:vendorId', async (req, res) => {
 
 app.get('/api/fix-database', async (req, res) => {
     try {
-        // Drop the unique constraint on order_number
         await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key`);
         await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key1`);
         await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key2`);
-        
-        // Add background_image column if missing
         await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT`);
         
         console.log('✅ Database constraint removed');
