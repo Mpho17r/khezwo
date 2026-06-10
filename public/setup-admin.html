@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Admin - KheZwo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        h1 { margin-bottom: 20px; color: #333; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; }
+        input { width: 100%; padding: 12px; margin-bottom: 20px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px; }
+        button:hover { opacity: 0.9; }
+        .message { margin-top: 20px; padding: 10px; border-radius: 8px; display: none; white-space: pre-line; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        .error { background: #fee; color: #c33; }
+        .warning { background: #fff3e0; color: #e65100; margin-bottom: 20px; padding: 10px; border-radius: 8px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔐 Setup Admin Account</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Important:</strong> After creating your admin account, delete this file from your server for security.
+        </div>
+        
+        <form id="setupForm">
+            <label>New Username</label>
+            <input type="text" id="username" placeholder="Enter username (e.g., khezwoadmin)" required>
+            
+            <label>New Password</label>
+            <input type="password" id="password" placeholder="Enter password (min 6 characters)" required>
+            
+            <label>Confirm Password</label>
+            <input type="password" id="confirmPassword" placeholder="Confirm password" required>
+            
+            <button type="submit">Create Admin Account</button>
+        </form>
+        
+        <div id="message" class="message"></div>
+    </div>
+    
+    <script>
+        document.getElementById('setupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            
+            if (!username || !password) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (password !== confirm) {
+                showMessage('Passwords do not match', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/setup-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage(`✅ Admin account created successfully!\n\nUsername: ${username}\nPassword: (the one you entered)\n\nYou can now login at:\n/admin-login.html`, 'success');
+                    document.getElementById('setupForm').reset();
+                } else {
+                    showMessage(data.error || 'Failed to create admin', 'error');
+                }
+            } catch (err) {
+                showMessage('Network error. Please try again.', 'error');
+            }
+        });
+        
+        function showMessage(msg, type) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = msg;
+            msgDiv.className = `message ${type}`;
+            msgDiv.style.display = 'block';
+            setTimeout(() => {
+                msgDiv.style.display = 'none';
+            }, 8000);
+        }
+    </script>
+</body>
+</html>
