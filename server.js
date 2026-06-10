@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER (TIMESTAMP BASED - ALWAYS MATCHES) =============
+// ============= PLACE ORDER =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -166,7 +166,6 @@ app.post('/api/place-order', async (req, res) => {
     }
     
     try {
-        // Create a unique order number that will be same for customer and vendor
         const timestamp = Date.now();
         const random = Math.floor(Math.random() * 1000);
         const orderNumber = `${vendor_id}-${timestamp}-${random}`;
@@ -307,8 +306,10 @@ app.post('/api/vendor/update-order-status', async (req, res) => {
             `UPDATE orders SET status = $1 WHERE id = $2 AND vendor_id = $3`,
             [status, order_id, req.session.vendor.id]
         );
+        console.log(`✅ Order ${order_id} marked as ${status}`);
         res.json({ success: true });
     } catch (err) {
+        console.error('Update order error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -347,7 +348,7 @@ app.get('/api/vendor/order-history', async (req, res) => {
     }
 });
 
-// ============= VENDOR ANALYTICS =============
+// ============= VENDOR ANALYTICS (FIXED) =============
 
 app.get('/api/vendor/analytics', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
@@ -355,18 +356,34 @@ app.get('/api/vendor/analytics', async (req, res) => {
     const vendorId = req.session.vendor.id;
     const { period } = req.query;
     
-    let interval = "30 days";
-    if (period === 'day') interval = "1 day";
-    if (period === 'week') interval = "7 days";
-    if (period === 'month') interval = "30 days";
+    // Calculate date range based on period
+    let startDate;
+    const now = new Date();
+    
+    switch(period) {
+        case 'day':
+            startDate = new Date(now.setHours(0, 0, 0, 0));
+            break;
+        case 'week':
+            startDate = new Date(now);
+            startDate.setDate(now.getDate() - 7);
+            break;
+        case 'month':
+        default:
+            startDate = new Date(now);
+            startDate.setDate(now.getDate() - 30);
+            break;
+    }
     
     try {
+        // Get all completed orders for this vendor within date range
         const ordersResult = await query(`
             SELECT * FROM orders 
             WHERE vendor_id = $1 
-            AND status = 'completed' 
-            AND created_at > NOW() - INTERVAL '${interval}'
-        `, [vendorId]);
+            AND status = 'completed'
+            AND created_at >= $2
+            ORDER BY created_at ASC
+        `, [vendorId, startDate]);
         
         const orders = ordersResult.rows;
         
@@ -381,6 +398,7 @@ app.get('/api/vendor/analytics', async (req, res) => {
             });
         }
         
+        // Calculate totals
         let totalSales = 0;
         let totalItemsSold = 0;
         const itemCounts = {};
@@ -410,11 +428,13 @@ app.get('/api/vendor/analytics', async (req, res) => {
             }
         }
         
+        // Get top 5 items
         const topItems = Object.entries(itemCounts)
             .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 5);
         
+        // Daily sales for chart (group by date)
         const dailyMap = {};
         for (const order of orders) {
             const dateKey = new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -429,7 +449,7 @@ app.get('/api/vendor/analytics', async (req, res) => {
         res.json({
             total_sales: totalSales,
             total_orders: orders.length,
-            avg_order_value: totalSales / orders.length,
+            avg_order_value: orders.length > 0 ? totalSales / orders.length : 0,
             total_items_sold: totalItemsSold,
             top_items: topItems,
             daily_sales: dailySales
@@ -701,6 +721,12 @@ app.get('/api/fix-database', async (req, res) => {
 });
 
 // ============= DEBUG ENDPOINTS =============
+
+app.get('/api/debug-orders', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    const orders = await query('SELECT id, order_number, status, created_at FROM orders WHERE vendor_id = $1', [req.session.vendor.id]);
+    res.json(orders.rows);
+});
 
 app.get('/api/check-orders/:vendorId', async (req, res) => {
     const vendorId = req.params.vendorId;
