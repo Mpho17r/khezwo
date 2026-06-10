@@ -1,15 +1,11 @@
+cd ~/Desktop/khezwo
+cat > public/customer-menu.html << 'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="theme-color" content="#667eea">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Menu - KheZwo Ordering</title>
-    
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4298733344119049"
-         crossorigin="anonymous"></script>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Menu - KheZwo</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; padding-bottom: 80px; }
@@ -23,7 +19,7 @@
         .menu-item-name { font-size: 18px; font-weight: 600; }
         .menu-item-price { font-size: 18px; font-weight: bold; color: #667eea; margin-top: 5px; }
         .add-to-cart { background: #667eea; color: white; border: none; padding: 8px 20px; border-radius: 25px; cursor: pointer; margin-top: 10px; }
-        .cart-toggle { position: fixed; bottom: 20px; right: 20px; background: #667eea; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 24px; }
+        .cart-toggle { position: fixed; bottom: 20px; right: 20px; background: #667eea; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 24px; border: none; }
         .cart-count { position: absolute; top: -5px; right: -5px; background: #ff5722; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
         .cart-panel { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 25px 25px 0 0; padding: 20px; transform: translateY(100%); transition: transform 0.3s; z-index: 200; max-height: 70vh; overflow-y: auto; }
         .cart-panel.open { transform: translateY(0); }
@@ -36,49 +32,39 @@
         .modal-content input, .modal-content select { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 10px; }
         .loading { text-align: center; padding: 50px; color: #999; }
         .watermark { text-align: center; padding: 20px; font-size: 12px; color: #999; }
-        @media (max-width: 480px) {
-            .menu-item-image { width: 60px; height: 60px; }
-            .vendor-name { font-size: 20px; }
-        }
     </style>
 </head>
 <body>
     <div id="app"><div class="loading">Loading menu...</div></div>
-    
     <script>
         let vendorData = null;
         let menuItems = [];
         let cart = [];
         let vendorId = null;
         
-        const pathParts = window.location.pathname.split('/');
-        vendorId = pathParts[pathParts.length - 1];
+        vendorId = window.location.pathname.split('/')[2];
         
         async function loadMenu() {
             try {
-                const response = await fetch(`/api/menu/${vendorId}`);
-                const data = await response.json();
-                if (response.ok) {
+                const res = await fetch(`/api/menu/${vendorId}`);
+                const data = await res.json();
+                if (res.ok) {
                     vendorData = data.vendor;
                     menuItems = data.menu_items;
-                    renderPage();
+                    render();
                 } else {
                     document.getElementById('app').innerHTML = '<div class="loading">Vendor not found</div>';
                 }
-            } catch (err) {
+            } catch(err) {
                 document.getElementById('app').innerHTML = '<div class="loading">Error loading menu</div>';
             }
         }
         
-        function renderPage() {
-            const isOpen = vendorData.is_open === 1;
-            const logoHtml = vendorData.logo_url ? `<img src="${vendorData.logo_url}" style="width:100%;height:100%;object-fit:cover;">` : '<div style="font-size:40px;">🏪</div>';
-            
+        function render() {
             document.getElementById('app').innerHTML = `
                 <div class="vendor-header">
-                    <div class="vendor-logo">${logoHtml}</div>
+                    <div class="vendor-logo">${vendorData.logo_url ? `<img src="${vendorData.logo_url}" style="width:100%;height:100%;object-fit:cover;">` : '<div style="font-size:40px;">🏪</div>'}</div>
                     <div class="vendor-name">${escapeHtml(vendorData.business_name)}</div>
-                    ${!isOpen ? '<div style="background:rgba(0,0,0,0.5);padding:8px;border-radius:10px;margin-top:10px;">Closed</div>' : ''}
                 </div>
                 <div class="menu-section" id="menuList"></div>
                 <div class="watermark">Powered by KheZwo ⚡</div>
@@ -114,23 +100,23 @@
         }
         
         function addToCart(id, name, price) {
-            const existing = cart.find(item => item.id === id);
+            const existing = cart.find(i => i.id === id);
             if (existing) existing.quantity++;
             else cart.push({ id, name, price, quantity: 1 });
             updateCartUI();
         }
         
         function removeFromCart(id) {
-            const index = cart.findIndex(item => item.id === id);
-            if (index !== -1) {
-                if (cart[index].quantity > 1) cart[index].quantity--;
-                else cart.splice(index, 1);
+            const idx = cart.findIndex(i => i.id === id);
+            if (idx !== -1) {
+                if (cart[idx].quantity > 1) cart[idx].quantity--;
+                else cart.splice(idx, 1);
             }
             updateCartUI();
         }
         
         function getCartCount() {
-            return cart.reduce((sum, item) => sum + item.quantity, 0);
+            return cart.reduce((s, i) => s + i.quantity, 0);
         }
         
         function updateCartUI() {
@@ -150,54 +136,58 @@
                 container.innerHTML = '<div style="text-align:center;color:#999;padding:40px;">Your cart is empty</div>';
                 return;
             }
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            container.innerHTML = cart.map(item => `
+            const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+            container.innerHTML = cart.map(i => `
                 <div class="cart-item">
-                    <div><strong>${escapeHtml(item.name)}</strong><br>R${item.price.toFixed(2)} x ${item.quantity}</div>
-                    <div><button onclick="removeFromCart(${item.id})" style="background:#fee;border:none;padding:5px 10px;border-radius:5px;">−</button>
-                    <span style="margin:0 10px;">${item.quantity}</span>
-                    <button onclick="addToCart(${item.id}, '${escapeHtml(item.name).replace(/'/g, "\\'")}', ${item.price})" style="background:#e8f5e9;border:none;padding:5px 10px;border-radius:5px;">+</button></div>
+                    <div><strong>${escapeHtml(i.name)}</strong><br>R${i.price.toFixed(2)} x ${i.quantity}</div>
+                    <div>
+                        <button onclick="removeFromCart(${i.id})" style="background:#fee;border:none;padding:5px 10px;border-radius:5px;">−</button>
+                        <span style="margin:0 10px;">${i.quantity}</span>
+                        <button onclick="addToCart(${i.id}, '${escapeHtml(i.name).replace(/'/g, "\\'")}', ${i.price})" style="background:#e8f5e9;border:none;padding:5px 10px;border-radius:5px;">+</button>
+                    </div>
                 </div>
             `).join('') + `<div class="cart-total">Total: R${total.toFixed(2)}</div>
             <button class="checkout-btn" onclick="openCheckout()">Proceed to Checkout →</button>`;
         }
         
         function toggleCart() { document.getElementById('cartPanel').classList.toggle('open'); }
-        function openCheckout() {
-            if (cart.length === 0) { alert('Your cart is empty'); return; }
-            document.getElementById('checkoutModal').style.display = 'flex';
-            toggleCart();
-        }
+        function openCheckout() { if (cart.length === 0) { alert('Cart empty'); return; } document.getElementById('checkoutModal').style.display = 'flex'; toggleCart(); }
         function closeModal() { document.getElementById('checkoutModal').style.display = 'none'; }
         
         async function submitOrder() {
             const customerName = document.getElementById('customerName').value;
             const customerPhone = document.getElementById('customerPhone').value;
             const paymentMethod = document.getElementById('paymentMethod').value;
-            if (!customerName) { alert('Please enter your name'); return; }
+            if (!customerName) { alert('Enter your name'); return; }
             
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const items = cart.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity }));
+            const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+            const items = cart.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity }));
             
             try {
-                const response = await fetch('/api/place-order', {
+                const res = await fetch('/api/place-order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vendor_id: parseInt(vendorId), customer_name: customerName, customer_phone: customerPhone, items, total, payment_method })
+                    body: JSON.stringify({
+                        vendor_id: parseInt(vendorId),
+                        customer_name: customerName,
+                        customer_phone: customerPhone,
+                        items: items,
+                        total: total,
+                        payment_method: paymentMethod
+                    })
                 });
-                const data = await response.json();
-                console.log('📦 ORDER RESPONSE:', data);
-                
-                if (response.ok && data.success) {
-                    alert(`✅ Order placed!\n\nOrder #: ${data.order_number}\nTotal: R${total.toFixed(2)}\n\nPlease take a screenshot.`);
+                const data = await res.json();
+                console.log('Order response:', data);
+                if (res.ok && data.success) {
+                    alert(`✅ Order placed!\nOrder #: ${data.order_number}\nTotal: R${total.toFixed(2)}`);
                     cart = [];
                     updateCartUI();
                     closeModal();
                     if (document.getElementById('cartPanel').classList.contains('open')) toggleCart();
                 } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
+                    alert('Error: ' + (data.error || 'Unknown'));
                 }
-            } catch (err) {
+            } catch(err) {
                 console.error('Order error:', err);
                 alert('Network error. Please try again.');
             }
@@ -208,3 +198,4 @@
     </script>
 </body>
 </html>
+EOF
