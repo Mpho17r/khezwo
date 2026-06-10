@@ -93,13 +93,13 @@
         
         .btn-outline {
             background: transparent;
-            color: #667eea;
-            border: 2px solid #667eea;
+            color: white;
+            border: 2px solid white;
         }
         
         .btn-outline:hover {
-            background: #667eea;
-            color: white;
+            background: white;
+            color: #667eea;
         }
         
         /* Features */
@@ -116,6 +116,11 @@
             padding: 30px;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
         }
         
         .feature-icon {
@@ -188,8 +193,29 @@
         .footer {
             text-align: center;
             padding: 40px;
-            color: rgba(255,255,255,0.7);
+            color: rgba(255,255,255,0.8);
             margin-top: 60px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .footer-links {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .footer-links a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        
+        .footer-links a:hover {
+            color: white;
+            text-decoration: underline;
         }
         
         @media (max-width: 768px) {
@@ -213,6 +239,14 @@
             .btn {
                 width: 200px;
                 text-align: center;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+            
+            .steps {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -295,6 +329,11 @@
         
         <div class="footer">
             <p>© 2025 KheZwo Tech Solutions — Empowering small businesses with smart ordering</p>
+            <div class="footer-links">
+                <a href="/privacy.html">Privacy Policy</a>
+                <a href="/terms.html">Terms of Service</a>
+                <a href="/contact.html">Contact Us</a>
+            </div>
         </div>
     </div>
 </body>
