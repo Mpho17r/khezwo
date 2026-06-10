@@ -10,7 +10,11 @@ const pool = new Pool({
 async function initDatabase() {
     const client = await pool.connect();
     try {
-        // Create vendors table
+        // Drop the problematic unique constraint if it exists
+        await client.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key`);
+        await client.query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key1`);
+        
+        // Recreate vendors table with background_image column
         await client.query(`
             CREATE TABLE IF NOT EXISTS vendors (
                 id SERIAL PRIMARY KEY,
@@ -30,10 +34,8 @@ async function initDatabase() {
             )
         `);
         
-        // Add column if it doesn't exist (for existing databases)
-        await client.query(`
-            ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT
-        `);
+        // Add background_image column if missing (for existing tables)
+        await client.query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT`);
         
         // Create menu_items table
         await client.query(`
@@ -50,7 +52,7 @@ async function initDatabase() {
             )
         `);
         
-        // Create orders table
+        // Create orders table (without unique constraint on order_number)
         await client.query(`
             CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
@@ -108,8 +110,9 @@ async function initDatabase() {
             ON CONFLICT (username) DO NOTHING
         `, [hashedPassword]);
         
-        console.log('✅ Database tables ready');
-        console.log('   - background_image column added to vendors');
+        console.log('✅ Database fixed!');
+        console.log('   - Removed unique constraint from order_number');
+        console.log('   - Added background_image column to vendors');
         
     } catch (err) {
         console.error('Database init error:', err.message);
