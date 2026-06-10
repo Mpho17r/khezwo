@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER (FIXED - NO UNIQUE CONSTRAINT ISSUES) =============
+// ============= PLACE ORDER =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -166,16 +166,12 @@ app.post('/api/place-order', async (req, res) => {
     }
     
     try {
-        // Get the count of orders for THIS SPECIFIC vendor
         const countResult = await query(
             `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1`,
             [vendor_id]
         );
         
-        // Next number is count + 1 (simple and reliable)
         const nextNumber = (parseInt(countResult.rows[0].count) || 0) + 1;
-        
-        // Format as 3-digit with leading zeros (001, 002, 003...)
         const orderNumber = String(nextNumber).padStart(3, '0');
         
         const result = await query(
@@ -279,7 +275,6 @@ app.post('/api/vendor/upload-background', upload.single('background'), async (re
             [backgroundUrl, req.session.vendor.id]
         );
         
-        // Update session
         const result = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
         req.session.vendor = result.rows[0];
         
@@ -663,6 +658,26 @@ app.get('/api/menu/:vendorId', async (req, res) => {
     }
 });
 
+// ============= FIX DATABASE CONSTRAINTS =============
+
+app.get('/api/fix-database', async (req, res) => {
+    try {
+        // Drop the unique constraint on order_number
+        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key`);
+        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key1`);
+        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key2`);
+        
+        // Add background_image column if missing
+        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT`);
+        
+        console.log('✅ Database constraint removed');
+        res.json({ success: true, message: 'Database fixed! You can now place orders.' });
+    } catch (err) {
+        console.error('Fix error:', err.message);
+        res.json({ error: err.message });
+    }
+});
+
 // ============= START SERVER =============
 
 app.listen(PORT, () => {
@@ -671,20 +686,4 @@ app.listen(PORT, () => {
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
     console.log(`\n📋 Admin: Use your custom credentials`);
     console.log(`🎉 Ready to go!\n`);
-});
-// TEMPORARY: Fix duplicate constraint issue (remove after running once)
-app.get('/api/fix-database', async (req, res) => {
-    try {
-        // Drop the unique constraint
-        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key`);
-        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key1`);
-        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key2`);
-        
-        // Add background_image column if missing
-        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT`);
-        
-        res.json({ success: true, message: 'Database fixed! Unique constraint removed.' });
-    } catch (err) {
-        res.json({ error: err.message });
-    }
 });
