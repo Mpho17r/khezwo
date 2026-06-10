@@ -37,8 +37,6 @@ app.use(session({
 }));
 
 const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${PORT}`;
-
-// Helper for queries
 const query = (text, params) => pool.query(text, params);
 
 app.get('/', (req, res) => {
@@ -158,145 +156,63 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= VENDOR ORDER HISTORY =============
+// ============= PLACE ORDER (FIXED) =============
 
-app.get('/api/vendor/order-history', async (req, res) => {
-    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+app.post('/api/place-order', async (req, res) => {
+    const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
     
-    const vendorId = req.session.vendor.id;
-    const { search, date } = req.query;
-    
-    try {
-        let queryText = `SELECT * FROM orders WHERE vendor_id = $1 AND status = 'completed'`;
-        let params = [vendorId];
-        let paramCount = 2;
-        
-        if (search) {
-            queryText += ` AND (order_number ILIKE $${paramCount} OR customer_name ILIKE $${paramCount})`;
-            params.push(`%${search}%`);
-            paramCount++;
-        }
-        
-        if (date) {
-            queryText += ` AND DATE(created_at) = $${paramCount}`;
-            params.push(date);
-            paramCount++;
-        }
-        
-        queryText += ` ORDER BY created_at DESC LIMIT 200`;
-        
-        const result = await query(queryText, params);
-        res.json(result.rows || []);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!vendor_id || !items || !total) {
+        return res.status(400).json({ error: 'Missing required fields' });
     }
-});
-
-// ============= VENDOR ANALYTICS =============
-
-app.get('/api/vendor/analytics', async (req, res) => {
-    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
-    
-    const vendorId = req.session.vendor.id;
-    const { period } = req.query;
-    
-    let interval = "30 days";
-    if (period === 'day') interval = "1 day";
-    if (period === 'week') interval = "7 days";
-    if (period === 'month') interval = "30 days";
     
     try {
-        // Get completed orders in the period
-        const ordersResult = await query(`
-            SELECT * FROM orders 
-            WHERE vendor_id = $1 
-            AND status = 'completed' 
-            AND created_at > NOW() - INTERVAL '${interval}'
-            ORDER BY created_at DESC
-        `, [vendorId]);
+        const countResult = await query(
+            `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1`,
+            [vendor_id]
+        );
         
-        const orders = ordersResult.rows;
+        const nextNumber = (parseInt(countResult.rows[0].count) || 0) + 1;
+        const orderNumber = `${vendor_id}-${String(nextNumber).padStart(3, '0')}`;
         
-        if (orders.length === 0) {
-            return res.json({
-                total_sales: 0,
-                total_orders: 0,
-                avg_order_value: 0,
-                total_items_sold: 0,
-                top_items: [],
-                daily_sales: []
-            });
-        }
+        const result = await query(
+            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', CURRENT_TIMESTAMP)
+             RETURNING id, order_number`,
+            [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
+        );
         
-        // Calculate totals
-        let totalSales = 0;
-        let totalItemsSold = 0;
-        const itemCounts = {};
+        console.log(`✅ New order: ${orderNumber} for vendor ${vendor_id}`);
         
-        for (const order of orders) {
-            totalSales += parseFloat(order.total);
-            
-            // Parse items_json
-            let items;
-            try {
-                items = typeof order.items_json === 'string' ? JSON.parse(order.items_json) : order.items_json;
-            } catch(e) {
-                console.error('Error parsing items:', e);
-                continue;
-            }
-            
-            if (Array.isArray(items)) {
-                for (const item of items) {
-                    const quantity = parseInt(item.quantity) || 1;
-                    totalItemsSold += quantity;
-                    
-                    const itemName = item.name;
-                    if (!itemCounts[itemName]) {
-                        itemCounts[itemName] = { count: 0, revenue: 0 };
-                    }
-                    itemCounts[itemName].count += quantity;
-                    itemCounts[itemName].revenue += (parseFloat(item.price) || 0) * quantity;
-                }
-            }
-        }
-        
-        // Get top 5 items
-        const topItems = Object.entries(itemCounts)
-            .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 5);
-        
-        // Daily sales aggregation
-        const dailyMap = {};
-        for (const order of orders) {
-            const dateKey = new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-            if (!dailyMap[dateKey]) {
-                dailyMap[dateKey] = 0;
-            }
-            dailyMap[dateKey] += parseFloat(order.total);
-        }
-        
-        const dailySales = Object.entries(dailyMap).map(([date, total]) => ({ date, total }));
-        
-        res.json({
-            total_sales: totalSales,
-            total_orders: orders.length,
-            avg_order_value: totalSales / orders.length,
-            total_items_sold: totalItemsSold,
-            top_items: topItems,
-            daily_sales: dailySales
+        res.json({ 
+            success: true, 
+            order_number: result.rows[0].order_number,
+            order_id: result.rows[0].id
         });
         
     } catch (err) {
-        console.error('Analytics error:', err);
-        res.json({
-            total_sales: 0,
-            total_orders: 0,
-            avg_order_value: 0,
-            total_items_sold: 0,
-            top_items: [],
-            daily_sales: []
-        });
+        console.error('Place order error:', err);
+        
+        if (err.code === '23505') {
+            try {
+                const fallbackNumber = `ORD-${vendor_id}-${Date.now()}`;
+                const result = await query(
+                    `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', CURRENT_TIMESTAMP)
+                     RETURNING id, order_number`,
+                    [vendor_id, fallbackNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
+                );
+                
+                res.json({ 
+                    success: true, 
+                    order_number: result.rows[0].order_number,
+                    order_id: result.rows[0].id
+                });
+            } catch (fallbackErr) {
+                res.status(500).json({ error: 'Failed to place order. Please try again.' });
+            }
+        } else {
+            res.status(500).json({ error: err.message });
+        }
     }
 });
 
@@ -377,6 +293,141 @@ app.post('/api/vendor/update-order-status', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// ============= VENDOR ORDER HISTORY =============
+
+app.get('/api/vendor/order-history', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorId = req.session.vendor.id;
+    const { search, date } = req.query;
+    
+    try {
+        let queryText = `SELECT * FROM orders WHERE vendor_id = $1 AND status = 'completed'`;
+        let params = [vendorId];
+        let paramCount = 2;
+        
+        if (search) {
+            queryText += ` AND (order_number ILIKE $${paramCount} OR customer_name ILIKE $${paramCount})`;
+            params.push(`%${search}%`);
+            paramCount++;
+        }
+        
+        if (date) {
+            queryText += ` AND DATE(created_at) = $${paramCount}`;
+            params.push(date);
+            paramCount++;
+        }
+        
+        queryText += ` ORDER BY created_at DESC LIMIT 200`;
+        
+        const result = await query(queryText, params);
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============= VENDOR ANALYTICS =============
+
+app.get('/api/vendor/analytics', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorId = req.session.vendor.id;
+    const { period } = req.query;
+    
+    let interval = "30 days";
+    if (period === 'day') interval = "1 day";
+    if (period === 'week') interval = "7 days";
+    if (period === 'month') interval = "30 days";
+    
+    try {
+        const ordersResult = await query(`
+            SELECT * FROM orders 
+            WHERE vendor_id = $1 
+            AND status = 'completed' 
+            AND created_at > NOW() - INTERVAL '${interval}'
+        `, [vendorId]);
+        
+        const orders = ordersResult.rows;
+        
+        if (orders.length === 0) {
+            return res.json({
+                total_sales: 0,
+                total_orders: 0,
+                avg_order_value: 0,
+                total_items_sold: 0,
+                top_items: [],
+                daily_sales: []
+            });
+        }
+        
+        let totalSales = 0;
+        let totalItemsSold = 0;
+        const itemCounts = {};
+        
+        for (const order of orders) {
+            totalSales += parseFloat(order.total);
+            
+            let items;
+            try {
+                items = typeof order.items_json === 'string' ? JSON.parse(order.items_json) : order.items_json;
+            } catch(e) {
+                continue;
+            }
+            
+            if (Array.isArray(items)) {
+                for (const item of items) {
+                    const quantity = parseInt(item.quantity) || 1;
+                    totalItemsSold += quantity;
+                    
+                    const itemName = item.name;
+                    if (!itemCounts[itemName]) {
+                        itemCounts[itemName] = { count: 0, revenue: 0 };
+                    }
+                    itemCounts[itemName].count += quantity;
+                    itemCounts[itemName].revenue += (parseFloat(item.price) || 0) * quantity;
+                }
+            }
+        }
+        
+        const topItems = Object.entries(itemCounts)
+            .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+        
+        const dailyMap = {};
+        for (const order of orders) {
+            const dateKey = new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            if (!dailyMap[dateKey]) {
+                dailyMap[dateKey] = 0;
+            }
+            dailyMap[dateKey] += parseFloat(order.total);
+        }
+        
+        const dailySales = Object.entries(dailyMap).map(([date, total]) => ({ date, total }));
+        
+        res.json({
+            total_sales: totalSales,
+            total_orders: orders.length,
+            avg_order_value: totalSales / orders.length,
+            total_items_sold: totalItemsSold,
+            top_items: topItems,
+            daily_sales: dailySales
+        });
+        
+    } catch (err) {
+        console.error('Analytics error:', err);
+        res.json({
+            total_sales: 0,
+            total_orders: 0,
+            avg_order_value: 0,
+            total_items_sold: 0,
+            top_items: [],
+            daily_sales: []
+        });
     }
 });
 
@@ -550,30 +601,7 @@ app.get('/api/menu/:vendorId', async (req, res) => {
     }
 });
 
-app.post('/api/place-order', async (req, res) => {
-    const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
-    
-    // Get the current max order number for this vendor to generate sequential order number
-    const maxOrderResult = await query(
-        `SELECT MAX(id) as max_id FROM orders WHERE vendor_id = $1`,
-        [vendor_id]
-    );
-    
-    const nextId = (maxOrderResult.rows[0].max_id || 0) + 1;
-    const orderNumber = String(nextId).padStart(3, '0');
-    
-    try {
-        await query(
-            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
-            [vendor_id, orderNumber, customer_name, customer_phone, JSON.stringify(items), total, payment_method]
-        );
-        
-        res.json({ success: true, order_number: orderNumber });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+// ============= START SERVER =============
 
 app.listen(PORT, () => {
     console.log(`\n✅ KheZwo is running!`);
