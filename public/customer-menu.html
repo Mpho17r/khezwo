@@ -1,5 +1,3 @@
-cd ~/Desktop/khezwo
-cat > public/customer-menu.html << 'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -179,7 +177,7 @@ cat > public/customer-menu.html << 'EOF'
                 const data = await res.json();
                 console.log('Order response:', data);
                 if (res.ok && data.success) {
-                    alert(`✅ Order placed!\nOrder #: ${data.order_number}\nTotal: R${total.toFixed(2)}`);
+                    alert(`✅ Order placed!\n\nOrder #: ${data.order_number}\nTotal: R${total.toFixed(2)}\n\nPlease take a screenshot.`);
                     cart = [];
                     updateCartUI();
                     closeModal();
@@ -198,4 +196,3 @@ cat > public/customer-menu.html << 'EOF'
     </script>
 </body>
 </html>
-EOF
