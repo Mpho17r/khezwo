@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER (FIXED) =============
+// ============= PLACE ORDER =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -431,7 +431,7 @@ app.get('/api/vendor/analytics', async (req, res) => {
     }
 });
 
-// ============= ADMIN ROUTES =============
+// ============= ADMIN AUTH =============
 
 app.post('/admin/login', async (req, res) => {
     const { username, password } = req.body;
@@ -456,6 +456,41 @@ app.post('/admin/login', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// ============= ADMIN SETUP ENDPOINT =============
+
+app.post('/api/setup-admin', async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password required' });
+    }
+    
+    if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Delete existing admin(s)
+        await query(`DELETE FROM admin_users`);
+        
+        // Create new admin
+        await query(
+            `INSERT INTO admin_users (username, password, role) VALUES ($1, $2, 'super_admin')`,
+            [username, hashedPassword]
+        );
+        
+        console.log('✅ Admin account created/updated');
+        res.json({ success: true, message: 'Admin account created' });
+    } catch (err) {
+        console.error('Setup error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============= ADMIN ROUTES =============
 
 app.get('/api/admin/vendors', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
@@ -607,6 +642,6 @@ app.listen(PORT, () => {
     console.log(`\n✅ KheZwo is running!`);
     console.log(`📍 http://localhost:${PORT}`);
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
-    console.log(`\n📋 Admin: username "khezwo_admin" | password "khezwo123"`);
+    console.log(`\n📋 Admin setup page: /setup-admin.html`);
     console.log(`🎉 Ready to go!\n`);
 });
