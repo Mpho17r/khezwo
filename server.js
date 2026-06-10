@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER =============
+// ============= PLACE ORDER (PER VENDOR SEQUENCE) =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -166,14 +166,18 @@ app.post('/api/place-order', async (req, res) => {
     }
     
     try {
+        // Count orders for THIS VENDOR ONLY
         const countResult = await query(
             `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1`,
             [vendor_id]
         );
         
+        // Next number is this vendor's count + 1
         const currentCount = parseInt(countResult.rows[0].count) || 0;
         const nextNumber = currentCount + 1;
         const orderNumber = String(nextNumber).padStart(3, '0');
+        
+        console.log(`Vendor ${vendor_id}: Order #${orderNumber} (${currentCount} existing orders)`);
         
         const result = await query(
             `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
@@ -181,8 +185,6 @@ app.post('/api/place-order', async (req, res) => {
              RETURNING order_number`,
             [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
         );
-        
-        console.log(`New order #${result.rows[0].order_number} for vendor ${vendor_id}`);
         
         res.json({ 
             success: true, 
@@ -704,15 +706,8 @@ app.get('/api/fix-database', async (req, res) => {
     }
 });
 
-// ============= START SERVER =============
+// ============= DEBUG ENDPOINTS =============
 
-app.listen(PORT, () => {
-    console.log(`\n✅ KheZwo is running!`);
-    console.log(`📍 http://localhost:${PORT}`);
-    console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
-    console.log(`\n📋 Admin: Use your custom credentials`);
-    console.log(`🎉 Ready to go!\n`);
-});// Debug endpoint to check orders
 app.get('/api/check-orders/:vendorId', async (req, res) => {
     const vendorId = req.params.vendorId;
     try {
@@ -724,4 +719,14 @@ app.get('/api/check-orders/:vendorId', async (req, res) => {
     } catch (err) {
         res.json({ error: err.message });
     }
+});
+
+// ============= START SERVER =============
+
+app.listen(PORT, () => {
+    console.log(`\n✅ KheZwo is running!`);
+    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
+    console.log(`\n📋 Admin: Use your custom credentials`);
+    console.log(`🎉 Ready to go!\n`);
 });
