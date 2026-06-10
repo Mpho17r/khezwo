@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER (PER VENDOR SEQUENCE) =============
+// ============= PLACE ORDER (PER VENDOR SEQUENCE - FIXED) =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -166,18 +166,17 @@ app.post('/api/place-order', async (req, res) => {
     }
     
     try {
-        // Count orders for THIS VENDOR ONLY
+        // Count orders for THIS SPECIFIC VENDOR ONLY - NOT ALL VENDORS
         const countResult = await query(
             `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1`,
             [vendor_id]
         );
         
-        // Next number is this vendor's count + 1
         const currentCount = parseInt(countResult.rows[0].count) || 0;
         const nextNumber = currentCount + 1;
         const orderNumber = String(nextNumber).padStart(3, '0');
         
-        console.log(`Vendor ${vendor_id}: Order #${orderNumber} (${currentCount} existing orders)`);
+        console.log(`📊 Vendor ${vendor_id} - Current orders: ${currentCount}, New order #: ${orderNumber}`);
         
         const result = await query(
             `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
@@ -680,7 +679,7 @@ app.get('/api/fix-order-numbers', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: `All order numbers reset to sequential format! ${totalUpdated} orders updated.`,
+            message: `All order numbers reset to sequential format per vendor! ${totalUpdated} orders updated.`,
             details: details
         });
     } catch (err) {
