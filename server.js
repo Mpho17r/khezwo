@@ -206,59 +206,87 @@ app.get('/api/vendor/analytics', async (req, res) => {
     if (period === 'month') interval = "30 days";
     
     try {
-        // Total sales and orders
-        const totals = await query(`
-            SELECT 
-                COALESCE(SUM(total), 0) as total_sales,
-                COUNT(*) as total_orders,
-                COALESCE(AVG(total), 0) as avg_order_value,
-                SUM((SELECT SUM((value->>'quantity')::int) FROM jsonb_array_elements(items_json) as value)) as total_items_sold
-            FROM orders 
-            WHERE vendor_id = $1 AND status = 'completed' AND created_at > NOW() - INTERVAL '${interval}'
+        // Get completed orders in the period
+        const ordersResult = await query(`
+            SELECT * FROM orders 
+            WHERE vendor_id = $1 
+            AND status = 'completed' 
+            AND created_at > NOW() - INTERVAL '${interval}'
+            ORDER BY created_at DESC
         `, [vendorId]);
         
-        // Top selling items
-        const topItems = await query(`
-            SELECT 
-                value->>'name' as name,
-                SUM((value->>'quantity')::int) as count,
-                SUM(((value->>'quantity')::int) * (value->>'price')::float) as revenue
-            FROM orders o, jsonb_array_elements(o.items_json) as value
-            WHERE o.vendor_id = $1 AND o.status = 'completed' AND o.created_at > NOW() - INTERVAL '${interval}'
-            GROUP BY value->>'name'
-            ORDER BY count DESC
-            LIMIT 5
-        `, [vendorId]);
+        const orders = ordersResult.rows;
         
-        // Daily sales for chart
-        const dailySales = await query(`
-            SELECT 
-                DATE(created_at) as date,
-                COALESCE(SUM(total), 0) as total
-            FROM orders 
-            WHERE vendor_id = $1 AND status = 'completed' AND created_at > NOW() - INTERVAL '${interval}'
-            GROUP BY DATE(created_at)
-            ORDER BY date ASC
-        `, [vendorId]);
+        if (orders.length === 0) {
+            return res.json({
+                total_sales: 0,
+                total_orders: 0,
+                avg_order_value: 0,
+                total_items_sold: 0,
+                top_items: [],
+                daily_sales: []
+            });
+        }
         
-        // Format daily sales for chart
-        const formattedDailySales = dailySales.rows.map(row => ({
-            date: new Date(row.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-            total: parseFloat(row.total)
-        }));
+        // Calculate totals
+        let totalSales = 0;
+        let totalItemsSold = 0;
+        const itemCounts = {};
+        
+        for (const order of orders) {
+            totalSales += parseFloat(order.total);
+            
+            // Parse items_json
+            let items;
+            try {
+                items = typeof order.items_json === 'string' ? JSON.parse(order.items_json) : order.items_json;
+            } catch(e) {
+                console.error('Error parsing items:', e);
+                continue;
+            }
+            
+            if (Array.isArray(items)) {
+                for (const item of items) {
+                    const quantity = parseInt(item.quantity) || 1;
+                    totalItemsSold += quantity;
+                    
+                    const itemName = item.name;
+                    if (!itemCounts[itemName]) {
+                        itemCounts[itemName] = { count: 0, revenue: 0 };
+                    }
+                    itemCounts[itemName].count += quantity;
+                    itemCounts[itemName].revenue += (parseFloat(item.price) || 0) * quantity;
+                }
+            }
+        }
+        
+        // Get top 5 items
+        const topItems = Object.entries(itemCounts)
+            .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+        
+        // Daily sales aggregation
+        const dailyMap = {};
+        for (const order of orders) {
+            const dateKey = new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            if (!dailyMap[dateKey]) {
+                dailyMap[dateKey] = 0;
+            }
+            dailyMap[dateKey] += parseFloat(order.total);
+        }
+        
+        const dailySales = Object.entries(dailyMap).map(([date, total]) => ({ date, total }));
         
         res.json({
-            total_sales: parseFloat(totals.rows[0].total_sales),
-            total_orders: parseInt(totals.rows[0].total_orders),
-            avg_order_value: parseFloat(totals.rows[0].avg_order_value),
-            total_items_sold: parseInt(totals.rows[0].total_items_sold || 0),
-            top_items: topItems.rows.map(item => ({
-                name: item.name,
-                count: parseInt(item.count),
-                revenue: parseFloat(item.revenue)
-            })),
-            daily_sales: formattedDailySales
+            total_sales: totalSales,
+            total_orders: orders.length,
+            avg_order_value: totalSales / orders.length,
+            total_items_sold: totalItemsSold,
+            top_items: topItems,
+            daily_sales: dailySales
         });
+        
     } catch (err) {
         console.error('Analytics error:', err);
         res.json({
