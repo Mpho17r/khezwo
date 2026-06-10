@@ -156,7 +156,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     });
 });
 
-// ============= PLACE ORDER (PER VENDOR SEQUENCE - FIXED) =============
+// ============= PLACE ORDER (TIMESTAMP BASED - ALWAYS MATCHES) =============
 
 app.post('/api/place-order', async (req, res) => {
     const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
@@ -166,17 +166,12 @@ app.post('/api/place-order', async (req, res) => {
     }
     
     try {
-        // Count orders for THIS SPECIFIC VENDOR ONLY - NOT ALL VENDORS
-        const countResult = await query(
-            `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1`,
-            [vendor_id]
-        );
+        // Create a unique order number that will be same for customer and vendor
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 1000);
+        const orderNumber = `${vendor_id}-${timestamp}-${random}`;
         
-        const currentCount = parseInt(countResult.rows[0].count) || 0;
-        const nextNumber = currentCount + 1;
-        const orderNumber = String(nextNumber).padStart(3, '0');
-        
-        console.log(`📊 Vendor ${vendor_id} - Current orders: ${currentCount}, New order #: ${orderNumber}`);
+        console.log(`📦 Creating order: ${orderNumber} for vendor ${vendor_id}`);
         
         const result = await query(
             `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
