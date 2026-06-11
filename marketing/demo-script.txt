@@ -1,0 +1,32 @@
+KHEZWO DEMO VIDEO SCRIPT (60 seconds)
+
+[0:00-0:05] Opening
+Text: "Stop using paper menus"
+Visual: Paper menu being thrown away
+
+[0:05-0:15] Problem
+Text: "Customers waiting too long?"
+Visual: Restaurant busy, customers waiting
+
+[0:15-0:30] Solution
+Text: "KheZwo QR Code Ordering"
+Visual: Customer scanning QR code on table
+Visual: Menu appears on phone
+Visual: Customer adds items to cart
+
+[0:30-0:40] Vendor Dashboard
+Text: "Real-time orders"
+Visual: Vendor sees order on dashboard
+Visual: Order marked as complete
+
+[0:40-0:50] Analytics
+Text: "Know what's selling"
+Visual: Analytics chart showing top items
+
+[0:50-0:55] Call to Action
+Text: "Start your free trial today"
+URL: khezwo.onrender.com
+
+[0:55-0:60] Logo + Website
+Visual: KheZwo logo
+Text: "khezwo.onrender.com"
