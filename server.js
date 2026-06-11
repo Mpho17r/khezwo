@@ -61,6 +61,7 @@ app.post('/vendor/signup', async (req, res) => {
         
         const vendorId = result.rows[0].id;
         const baseUrl = getBaseUrl();
+        // FIXED: QR code points to customer menu page
         const qrUrl = `${baseUrl}/menu/${vendorId}`;
         qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, () => {});
         
@@ -124,25 +125,21 @@ app.get('/api/vendor/data', async (req, res) => {
     }
 });
 
-// ============= QR CODE ENDPOINTS (FIXED) =============
+// ============= QR CODE ENDPOINTS =============
 
 app.get('/api/vendor/qr-code', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const vendorId = req.session.vendor.id;
     const baseUrl = getBaseUrl();
+    // FIXED: QR code points to customer menu page
     const qrUrl = `${baseUrl}/menu/${vendorId}`;
     
     try {
-        // Generate QR code as data URL with better settings
         const qrBase64 = await qrcode.toDataURL(qrUrl, {
             errorCorrectionLevel: 'H',
             margin: 2,
-            width: 300,
-            color: {
-                dark: '#000000',
-                light: '#ffffff'
-            }
+            width: 300
         });
         res.json({ success: true, qrBase64: qrBase64 });
     } catch (err) {
@@ -156,17 +153,18 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     
     const vendorId = req.session.vendor.id;
     const baseUrl = getBaseUrl();
+    // FIXED: QR code points to customer menu page
     const qrUrl = `${baseUrl}/menu/${vendorId}`;
     
+    console.log(`Regenerating QR code for vendor ${vendorId} -> ${qrUrl}`);
+    
     try {
-        // Generate and save to file
         await qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, {
             errorCorrectionLevel: 'H',
             margin: 2,
             width: 300
         });
         
-        // Also return as base64 for immediate display
         const qrBase64 = await qrcode.toDataURL(qrUrl, {
             errorCorrectionLevel: 'H',
             margin: 2,
