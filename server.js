@@ -62,7 +62,7 @@ app.post('/vendor/signup', async (req, res) => {
         const vendorId = result.rows[0].id;
         const baseUrl = getBaseUrl();
         // FIXED: QR code points to customer menu page
-        const qrUrl = `${baseUrl}/menu/${vendorId}`;
+        const qrUrl = `${getBaseUrl()}/menu/${vendorId}`;
         qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, () => {});
         
         res.json({ success: true, vendor_id: vendorId });
@@ -133,7 +133,7 @@ app.get('/api/vendor/qr-code', async (req, res) => {
     const vendorId = req.session.vendor.id;
     const baseUrl = getBaseUrl();
     // FIXED: QR code points to customer menu page
-    const qrUrl = `${baseUrl}/menu/${vendorId}`;
+    const qrUrl = `${getBaseUrl()}/menu/${vendorId}`;
     
     try {
         const qrBase64 = await qrcode.toDataURL(qrUrl, {
@@ -154,7 +154,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     const vendorId = req.session.vendor.id;
     const baseUrl = getBaseUrl();
     // FIXED: QR code points to customer menu page
-    const qrUrl = `${baseUrl}/menu/${vendorId}`;
+    const qrUrl = `${getBaseUrl()}/menu/${vendorId}`;
     
     console.log(`Regenerating QR code for vendor ${vendorId} -> ${qrUrl}`);
     
