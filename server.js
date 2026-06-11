@@ -833,4 +833,89 @@ app.listen(PORT, () => {
     console.log(`📍 http://localhost:${PORT}`);
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
     console.log(`🎉 Ready to go!\n`);
+});// ============= SETUP TABLES ENDPOINT =============
+app.get('/api/setup-tables', async (req, res) => {
+    try {
+        let details = '';
+        
+        // Create audit_logs table
+        await query(`
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id SERIAL PRIMARY KEY,
+                vendor_id INTEGER REFERENCES vendors(id),
+                action TEXT NOT NULL,
+                details TEXT,
+                ip_address TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        details += '✓ audit_logs table created\n';
+        
+        // Create order_tracking table
+        await query(`
+            CREATE TABLE IF NOT EXISTS order_tracking (
+                id SERIAL PRIMARY KEY,
+                order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                status TEXT DEFAULT 'received',
+                estimated_time INTEGER,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        details += '✓ order_tracking table created\n';
+        
+        // Create business_types table
+        await query(`
+            CREATE TABLE IF NOT EXISTS business_types (
+                id SERIAL PRIMARY KEY,
+                name TEXT UNIQUE NOT NULL,
+                icon TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        details += '✓ business_types table created\n';
+        
+        // Insert business types
+        await query(`
+            INSERT INTO business_types (name, icon) VALUES
+            ('restaurant', '🍽️'),
+            ('clothing', '👕'),
+            ('farming', '🌾'),
+            ('retail', '🛍️'),
+            ('services', '🔧')
+            ON CONFLICT (name) DO NOTHING
+        `);
+        details += '✓ business types inserted\n';
+        
+        // Create subscription_plans table
+        await query(`
+            CREATE TABLE IF NOT EXISTS subscription_plans (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                tier TEXT UNIQUE NOT NULL,
+                price DECIMAL(10,2) NOT NULL,
+                max_items INTEGER,
+                max_branches INTEGER,
+                has_analytics BOOLEAN DEFAULT FALSE,
+                has_custom_branding BOOLEAN DEFAULT FALSE,
+                has_priority_support BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        details += '✓ subscription_plans table created\n';
+        
+        // Insert subscription plans
+        await query(`
+            INSERT INTO subscription_plans (name, tier, price, max_items, max_branches, has_analytics, has_custom_branding, has_priority_support) VALUES
+            ('Free', 'free', 0, 20, 1, FALSE, FALSE, FALSE),
+            ('Pro', 'pro', 299, NULL, 1, TRUE, TRUE, FALSE),
+            ('Enterprise', 'enterprise', 999, NULL, 10, TRUE, TRUE, TRUE)
+            ON CONFLICT (tier) DO NOTHING
+        `);
+        details += '✓ subscription plans inserted\n';
+        
+        res.json({ success: true, message: 'All tables created successfully!', details: details });
+    } catch (err) {
+        console.error('Setup error:', err);
+        res.json({ success: false, error: err.message });
+    }
 });
