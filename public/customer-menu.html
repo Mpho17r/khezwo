@@ -11,7 +11,6 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: #f8f9fa; padding-bottom: 80px; }
         
-        /* Header with Parallax Effect */
         .vendor-header {
             position: relative;
             color: white;
@@ -20,25 +19,9 @@
             background-size: cover !important;
             background-position: center !important;
         }
-        
-        .vendor-header.default {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        
-        .vendor-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.4);
-        }
-        
-        .vendor-header > * {
-            position: relative;
-            z-index: 1;
-        }
+        .vendor-header.default { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .vendor-header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); }
+        .vendor-header > * { position: relative; z-index: 1; }
         
         .vendor-logo {
             width: 100px;
@@ -52,41 +35,15 @@
             overflow: hidden;
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
-        
         .vendor-logo img { width: 100%; height: 100%; object-fit: cover; }
         .vendor-name { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
         .vendor-status { display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
         
-        /* Menu Categories */
-        .categories {
-            max-width: 600px;
-            margin: 20px auto 0;
-            padding: 0 20px;
-            display: flex;
-            gap: 12px;
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
+        .categories { max-width: 600px; margin: 20px auto 0; padding: 0 20px; display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; }
         .categories::-webkit-scrollbar { display: none; }
-        .category-chip {
-            background: white;
-            padding: 10px 24px;
-            border-radius: 40px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #666;
-            white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .category-chip.active {
-            background: #667eea;
-            color: white;
-            transform: scale(1.02);
-        }
+        .category-chip { background: white; padding: 10px 24px; border-radius: 40px; font-size: 14px; font-weight: 600; color: #666; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s; }
+        .category-chip.active { background: #667eea; color: white; transform: scale(1.02); }
         
-        /* Menu Items */
         .menu-section { max-width: 600px; margin: 0 auto; padding: 20px; }
         .menu-item {
             background: white;
@@ -101,15 +58,7 @@
         }
         .menu-item:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
         .menu-item:active { transform: scale(0.98); }
-        
-        .menu-item-image {
-            width: 90px;
-            height: 90px;
-            border-radius: 20px;
-            object-fit: cover;
-            background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
-        }
-        
+        .menu-item-image { width: 90px; height: 90px; border-radius: 20px; object-fit: cover; background: linear-gradient(135deg, #f0f0f0, #e0e0e0); }
         .menu-item-info { flex: 1; }
         .menu-item-name { font-size: 18px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
         .menu-item-price { font-size: 20px; font-weight: 800; color: #667eea; }
@@ -129,7 +78,6 @@
         .add-to-cart:active { transform: scale(0.95); }
         .add-to-cart:disabled { background: #ccc; cursor: not-allowed; }
         
-        /* Cart Button */
         .cart-toggle {
             position: fixed;
             bottom: 20px;
@@ -166,7 +114,6 @@
             justify-content: center;
         }
         
-        /* Cart Panel */
         .cart-panel {
             position: fixed;
             bottom: 0;
@@ -206,7 +153,6 @@
         .checkout-btn:active { transform: scale(0.98); }
         .empty-cart { text-align: center; color: #999; padding: 50px; }
         
-        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -286,7 +232,6 @@
         function render() {
             let headerStyle = '';
             const bgImage = vendorData.background_image;
-            
             if (bgImage && bgImage !== 'null' && bgImage !== '') {
                 headerStyle = `style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${bgImage}); background-size: cover; background-position: center;"`;
             }
@@ -320,12 +265,10 @@
                 </div>
             `;
             
-            // Categories
             const categories = ['All', ...new Set(menuItems.map(i => i.category).filter(c => c))];
             const catsContainer = document.getElementById('categories');
             catsContainer.innerHTML = categories.map(cat => `<div class="category-chip" onclick="filterCategory('${cat}')">${cat}</div>`).join('');
             document.querySelectorAll('.category-chip')[0]?.classList.add('active');
-            
             renderMenuItems();
             renderCart();
         }
@@ -360,7 +303,6 @@
             const existing = cart.find(i => i.id === id);
             existing ? existing.quantity++ : cart.push({ id, name, price, quantity: 1 });
             updateCartUI();
-            // Haptic feedback
             if (navigator.vibrate) navigator.vibrate(50);
         }
         
@@ -418,7 +360,8 @@
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    alert(`✅ Order placed!\n\nOrder #: ${data.order_number}\nTotal: R${total.toFixed(2)}\n\nPlease take a screenshot of this order number.`);
+                    const trackingUrl = `/track-order.html?order=${data.order_number}`;
+                    alert(`✅ Order placed!\n\nOrder #: ${data.order_number}\nTotal: R${total.toFixed(2)}\n\nTrack your order: ${window.location.origin}${trackingUrl}\n\nPlease save your order number for tracking.`);
                     cart = [];
                     updateCartUI();
                     closeModal();
