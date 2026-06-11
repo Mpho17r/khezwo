@@ -41,7 +41,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ============= CUSTOMER MENU PAGE =============
 app.get('/menu/:vendorId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'customer-menu.html'));
 });
@@ -90,7 +89,6 @@ app.post('/api/place-order', async (req, res) => {
         const random = Math.floor(Math.random() * 1000);
         const orderNumber = `${vendor_id}-${timestamp}-${random}`;
         
-        // Get vendor's platform fee percentage
         const vendorResult = await query(`SELECT platform_fee_percentage FROM vendors WHERE id = $1`, [vendor_id]);
         const platformFeePercent = vendorResult.rows[0]?.platform_fee_percentage || 5;
         const platformFee = (total * platformFeePercent) / 100;
@@ -98,14 +96,13 @@ app.post('/api/place-order', async (req, res) => {
         const result = await query(
             `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, platform_fee, payment_method, status, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', CURRENT_TIMESTAMP)
-             RETURNING order_number`,
+             RETURNING order_number, id`,
             [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, platformFee, payment_method]
         );
         
-        // Create order tracking entry
         await query(
-            `INSERT INTO order_tracking (order_id, status) VALUES ((SELECT id FROM orders WHERE order_number = $1), 'received')`,
-            [result.rows[0].order_number]
+            `INSERT INTO order_tracking (order_id, status) VALUES ($1, 'received')`,
+            [result.rows[0].id]
         );
         
         res.json({ 
@@ -151,15 +148,10 @@ app.post('/vendor/signup', async (req, res) => {
         const qrUrl = `${baseUrl}/menu/${vendorId}`;
         qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, () => {});
         
-        // If multiple branches, mark as headquarters
         if (has_branches === 'yes' && branch_count && branch_count > 1) {
-            await query(
-                `UPDATE vendors SET is_headquarters = true WHERE id = $1`,
-                [vendorId]
-            );
+            await query(`UPDATE vendors SET is_headquarters = true WHERE id = $1`, [vendorId]);
         }
         
-        // Log signup in audit log
         await query(
             `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'signup', $2)`,
             [vendorId, JSON.stringify({ business_type, business_size, subscription_tier })]
@@ -188,7 +180,6 @@ app.post('/vendor/login', async (req, res) => {
         const valid = await bcrypt.compare(password, vendor.password);
         
         if (!valid) {
-            // Log failed login attempt
             await query(
                 `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'failed_login', $2)`,
                 [vendor.id, JSON.stringify({ ip: req.ip })]
@@ -198,7 +189,6 @@ app.post('/vendor/login', async (req, res) => {
         
         req.session.vendor = vendor;
         
-        // Log successful login
         await query(
             `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'login', $2)`,
             [vendor.id, JSON.stringify({ ip: req.ip })]
@@ -218,7 +208,7 @@ app.get('/vendor/logout', (req, res) => {
     res.redirect('/');
 });
 
-// ============= VENDOR DASHBOARD DATA =============
+// ============= VENDOR DASHBOARD DATA (WITH BRANCHES) =============
 
 app.get('/api/vendor/data', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
@@ -230,10 +220,17 @@ app.get('/api/vendor/data', async (req, res) => {
         const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 ORDER BY id DESC`, [vendorId]);
         const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 AND status = 'pending' ORDER BY created_at DESC`, [vendorId]);
         
-        // Get branch info if multi-branch
+        // Get branches if this is headquarters
         let branches = [];
         if (vendorResult.rows[0].is_headquarters) {
-            const branchesResult = await query(`SELECT * FROM vendors WHERE parent_id = $1`, [vendorId]);
+            const branchesResult = await query(`
+                SELECT v.*, 
+                    (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders,
+                    (SELECT COALESCE(SUM(total), 0) FROM orders WHERE vendor_id = v.id) as total_sales,
+                    (SELECT COUNT(*) FROM menu_items WHERE vendor_id = v.id) as menu_items
+                FROM vendors v 
+                WHERE v.parent_id = $1
+            `, [vendorId]);
             branches = branchesResult.rows;
         }
         
@@ -244,6 +241,68 @@ app.get('/api/vendor/data', async (req, res) => {
             branches: branches
         });
     } catch (err) {
+        console.error('Vendor data error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============= BRANCH MANAGEMENT API =============
+
+app.get('/api/vendor/branches', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    try {
+        const branches = await query(`
+            SELECT v.*, 
+                (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders,
+                (SELECT COALESCE(SUM(total), 0) FROM orders WHERE vendor_id = v.id) as total_sales,
+                (SELECT COUNT(*) FROM menu_items WHERE vendor_id = v.id) as menu_items
+            FROM vendors v 
+            WHERE v.parent_id = $1
+        `, [req.session.vendor.id]);
+        
+        res.json(branches.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/vendor/add-branch', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorCheck = await query(`SELECT is_headquarters FROM vendors WHERE id = $1`, [req.session.vendor.id]);
+    if (!vendorCheck.rows[0]?.is_headquarters) {
+        return res.status(403).json({ error: 'Only headquarters can add branches' });
+    }
+    
+    const { business_name, address, phone, is_open } = req.body;
+    
+    if (!business_name) {
+        return res.status(400).json({ error: 'Branch name required' });
+    }
+    
+    try {
+        const tempEmail = `branch_${Date.now()}@temp.com`;
+        const tempPassword = await bcrypt.hash('temporary', 10);
+        
+        const result = await query(
+            `INSERT INTO vendors (business_name, owner_name, email, phone, password, parent_id, is_open, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP) RETURNING id`,
+            [business_name, req.session.vendor.owner_name, tempEmail, phone || '', tempPassword, req.session.vendor.id, is_open || 1]
+        );
+        
+        const baseUrl = getBaseUrl();
+        const qrUrl = `${baseUrl}/menu/${result.rows[0].id}`;
+        qrcode.toFile(`./uploads/qr_${result.rows[0].id}.png`, qrUrl, () => {});
+        
+        await query(
+            `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'add_branch', $2)`,
+            [req.session.vendor.id, JSON.stringify({ branch_name: business_name, branch_id: result.rows[0].id })]
+        );
+        
+        res.json({ success: true, branch_id: result.rows[0].id });
+    } catch (err) {
+        console.error('Add branch error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -333,7 +392,7 @@ app.post('/api/vendor/toggle-availability', async (req, res) => {
     }
 });
 
-// ============= VENDOR PROFILE (PRESERVES IMAGES) =============
+// ============= VENDOR PROFILE =============
 
 app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
@@ -426,7 +485,6 @@ app.post('/api/vendor/update-order-status', async (req, res) => {
             [status, order_id, req.session.vendor.id]
         );
         
-        // Update order tracking
         await query(
             `INSERT INTO order_tracking (order_id, status) VALUES ($1, $2)`,
             [order_id, status]
@@ -532,9 +590,9 @@ app.get('/api/vendor/analytics', async (req, res) => {
                 total_items_sold: 0,
                 platform_fees: 0,
                 top_items: [],
+                slow_moving_items: [],
                 daily_sales: [],
-                sales_by_hour: [],
-                slow_moving_items: []
+                sales_by_hour: []
             });
         }
         
@@ -808,7 +866,59 @@ app.get('/api/fix-database', async (req, res) => {
         await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS is_headquarters BOOLEAN DEFAULT FALSE`);
         await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT 0`);
         await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS platform_fee_percentage DECIMAL(5,2) DEFAULT 5`);
-        res.json({ success: true, message: 'Database fixed!' });
+        
+        await query(`CREATE TABLE IF NOT EXISTS audit_logs (
+            id SERIAL PRIMARY KEY,
+            vendor_id INTEGER REFERENCES vendors(id),
+            action TEXT NOT NULL,
+            details TEXT,
+            ip_address TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        
+        await query(`CREATE TABLE IF NOT EXISTS order_tracking (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+            status TEXT DEFAULT 'received',
+            estimated_time INTEGER,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        
+        await query(`CREATE TABLE IF NOT EXISTS business_types (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            icon TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        
+        await query(`INSERT INTO business_types (name, icon) VALUES
+            ('restaurant', '🍽️'),
+            ('clothing', '👕'),
+            ('farming', '🌾'),
+            ('retail', '🛍️'),
+            ('services', '🔧')
+            ON CONFLICT (name) DO NOTHING`);
+        
+        await query(`CREATE TABLE IF NOT EXISTS subscription_plans (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            tier TEXT UNIQUE NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            max_items INTEGER,
+            max_branches INTEGER,
+            has_analytics BOOLEAN DEFAULT FALSE,
+            has_custom_branding BOOLEAN DEFAULT FALSE,
+            has_priority_support BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        
+        await query(`INSERT INTO subscription_plans (name, tier, price, max_items, max_branches, has_analytics, has_custom_branding, has_priority_support) VALUES
+            ('Free', 'free', 0, 20, 1, FALSE, FALSE, FALSE),
+            ('Pro', 'pro', 299, NULL, 1, TRUE, TRUE, FALSE),
+            ('Enterprise', 'enterprise', 999, NULL, 10, TRUE, TRUE, TRUE)
+            ON CONFLICT (tier) DO NOTHING`);
+        
+        res.json({ success: true, message: 'Database fixed! All tables created.' });
     } catch (err) {
         res.json({ error: err.message });
     }
@@ -818,6 +928,86 @@ app.get('/api/debug-orders', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     const orders = await query('SELECT id, order_number, status, created_at FROM orders WHERE vendor_id = $1', [req.session.vendor.id]);
     res.json(orders.rows);
+});
+
+app.get('/api/debug-qr-url', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    const vendorId = req.session.vendor.id;
+    const baseUrl = getBaseUrl();
+    res.json({ 
+        vendor_id: vendorId, 
+        qr_url: `${baseUrl}/menu/${vendorId}`,
+        base_url: baseUrl
+    });
+});
+
+// ============= SETUP TABLES ENDPOINT =============
+app.get('/api/setup-tables', async (req, res) => {
+    try {
+        let details = '';
+        
+        await query(`CREATE TABLE IF NOT EXISTS audit_logs (
+            id SERIAL PRIMARY KEY,
+            vendor_id INTEGER REFERENCES vendors(id),
+            action TEXT NOT NULL,
+            details TEXT,
+            ip_address TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        details += '✓ audit_logs table created\n';
+        
+        await query(`CREATE TABLE IF NOT EXISTS order_tracking (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+            status TEXT DEFAULT 'received',
+            estimated_time INTEGER,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        details += '✓ order_tracking table created\n';
+        
+        await query(`CREATE TABLE IF NOT EXISTS business_types (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            icon TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        details += '✓ business_types table created\n';
+        
+        await query(`INSERT INTO business_types (name, icon) VALUES
+            ('restaurant', '🍽️'),
+            ('clothing', '👕'),
+            ('farming', '🌾'),
+            ('retail', '🛍️'),
+            ('services', '🔧')
+            ON CONFLICT (name) DO NOTHING`);
+        details += '✓ business types inserted\n';
+        
+        await query(`CREATE TABLE IF NOT EXISTS subscription_plans (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            tier TEXT UNIQUE NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            max_items INTEGER,
+            max_branches INTEGER,
+            has_analytics BOOLEAN DEFAULT FALSE,
+            has_custom_branding BOOLEAN DEFAULT FALSE,
+            has_priority_support BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        details += '✓ subscription_plans table created\n';
+        
+        await query(`INSERT INTO subscription_plans (name, tier, price, max_items, max_branches, has_analytics, has_custom_branding, has_priority_support) VALUES
+            ('Free', 'free', 0, 20, 1, FALSE, FALSE, FALSE),
+            ('Pro', 'pro', 299, NULL, 1, TRUE, TRUE, FALSE),
+            ('Enterprise', 'enterprise', 999, NULL, 10, TRUE, TRUE, TRUE)
+            ON CONFLICT (tier) DO NOTHING`);
+        details += '✓ subscription plans inserted\n';
+        
+        res.json({ success: true, message: 'All tables created successfully!', details: details });
+    } catch (err) {
+        console.error('Setup error:', err);
+        res.json({ success: false, error: err.message });
+    }
 });
 
 // ============= VENDOR DASHBOARD PAGE =============
@@ -833,89 +1023,4 @@ app.listen(PORT, () => {
     console.log(`📍 http://localhost:${PORT}`);
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
     console.log(`🎉 Ready to go!\n`);
-});// ============= SETUP TABLES ENDPOINT =============
-app.get('/api/setup-tables', async (req, res) => {
-    try {
-        let details = '';
-        
-        // Create audit_logs table
-        await query(`
-            CREATE TABLE IF NOT EXISTS audit_logs (
-                id SERIAL PRIMARY KEY,
-                vendor_id INTEGER REFERENCES vendors(id),
-                action TEXT NOT NULL,
-                details TEXT,
-                ip_address TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        details += '✓ audit_logs table created\n';
-        
-        // Create order_tracking table
-        await query(`
-            CREATE TABLE IF NOT EXISTS order_tracking (
-                id SERIAL PRIMARY KEY,
-                order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-                status TEXT DEFAULT 'received',
-                estimated_time INTEGER,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        details += '✓ order_tracking table created\n';
-        
-        // Create business_types table
-        await query(`
-            CREATE TABLE IF NOT EXISTS business_types (
-                id SERIAL PRIMARY KEY,
-                name TEXT UNIQUE NOT NULL,
-                icon TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        details += '✓ business_types table created\n';
-        
-        // Insert business types
-        await query(`
-            INSERT INTO business_types (name, icon) VALUES
-            ('restaurant', '🍽️'),
-            ('clothing', '👕'),
-            ('farming', '🌾'),
-            ('retail', '🛍️'),
-            ('services', '🔧')
-            ON CONFLICT (name) DO NOTHING
-        `);
-        details += '✓ business types inserted\n';
-        
-        // Create subscription_plans table
-        await query(`
-            CREATE TABLE IF NOT EXISTS subscription_plans (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                tier TEXT UNIQUE NOT NULL,
-                price DECIMAL(10,2) NOT NULL,
-                max_items INTEGER,
-                max_branches INTEGER,
-                has_analytics BOOLEAN DEFAULT FALSE,
-                has_custom_branding BOOLEAN DEFAULT FALSE,
-                has_priority_support BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        details += '✓ subscription_plans table created\n';
-        
-        // Insert subscription plans
-        await query(`
-            INSERT INTO subscription_plans (name, tier, price, max_items, max_branches, has_analytics, has_custom_branding, has_priority_support) VALUES
-            ('Free', 'free', 0, 20, 1, FALSE, FALSE, FALSE),
-            ('Pro', 'pro', 299, NULL, 1, TRUE, TRUE, FALSE),
-            ('Enterprise', 'enterprise', 999, NULL, 10, TRUE, TRUE, TRUE)
-            ON CONFLICT (tier) DO NOTHING
-        `);
-        details += '✓ subscription plans inserted\n';
-        
-        res.json({ success: true, message: 'All tables created successfully!', details: details });
-    } catch (err) {
-        console.error('Setup error:', err);
-        res.json({ success: false, error: err.message });
-    }
 });
