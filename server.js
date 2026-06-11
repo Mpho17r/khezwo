@@ -37,12 +37,11 @@ app.use(session({
 const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${PORT}`;
 const query = (text, params) => pool.query(text, params);
 
-// ============= HOME PAGE =============
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ============= CUSTOMER MENU PAGE (MUST BE BEFORE OTHER ROUTES) =============
+// ============= CUSTOMER MENU PAGE =============
 app.get('/menu/:vendorId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'customer-menu.html'));
 });
@@ -216,8 +215,6 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     const baseUrl = getBaseUrl();
     const qrUrl = `${baseUrl}/menu/${vendorId}`;
     
-    console.log(`Regenerating QR code for vendor ${vendorId} -> ${qrUrl}`);
-    
     try {
         await qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, {
             errorCorrectionLevel: 'H',
@@ -274,30 +271,45 @@ app.post('/api/vendor/toggle-availability', async (req, res) => {
     }
 });
 
+// ============= VENDOR PROFILE (FIXED - PRESERVES IMAGES) =============
+
 app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { business_name, owner_name, phone, address, is_open, closed_message } = req.body;
-    const logoUrl = req.file ? `/uploads/${req.file.filename}` : null;
     
     try {
-        let queryText = `UPDATE vendors SET business_name = $1, owner_name = $2, phone = $3, address = $4, is_open = $5, closed_message = $6`;
-        let params = [business_name, owner_name, phone, address, is_open || 1, closed_message || null];
+        // Get current vendor data to preserve images
+        const currentVendor = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
+        let logoUrl = currentVendor.rows[0].logo_url;
+        let backgroundImage = currentVendor.rows[0].background_image;
         
-        if (logoUrl) {
-            queryText += `, logo_url = $7 WHERE id = $8`;
-            params.push(logoUrl, req.session.vendor.id);
-        } else {
-            queryText += ` WHERE id = $7`;
-            params.push(req.session.vendor.id);
+        // Only update logo if a new file was uploaded
+        if (req.file) {
+            logoUrl = `/uploads/${req.file.filename}`;
         }
         
-        await query(queryText, params);
+        await query(
+            `UPDATE vendors SET 
+                business_name = $1, 
+                owner_name = $2, 
+                phone = $3, 
+                address = $4, 
+                is_open = $5, 
+                closed_message = $6,
+                logo_url = $7,
+                background_image = $8
+             WHERE id = $9`,
+            [business_name, owner_name, phone, address, is_open || 1, closed_message || null, logoUrl, backgroundImage, req.session.vendor.id]
+        );
         
+        // Update session
         const result = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
         req.session.vendor = result.rows[0];
+        
         res.json({ success: true });
     } catch (err) {
+        console.error('Update profile error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -640,17 +652,6 @@ app.get('/api/debug-orders', async (req, res) => {
     res.json(orders.rows);
 });
 
-app.get('/api/debug-qr-url', async (req, res) => {
-    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
-    const vendorId = req.session.vendor.id;
-    const baseUrl = getBaseUrl();
-    res.json({ 
-        vendor_id: vendorId, 
-        qr_url: `${baseUrl}/menu/${vendorId}`,
-        base_url: baseUrl
-    });
-});
-
 // ============= VENDOR DASHBOARD PAGE =============
 app.get('/vendor-dashboard.html', (req, res) => {
     if (!req.session.vendor) {
@@ -658,8 +659,6 @@ app.get('/vendor-dashboard.html', (req, res) => {
     }
     res.sendFile(path.join(__dirname, 'public', 'vendor-dashboard.html'));
 });
-
-// ============= START SERVER =============
 
 app.listen(PORT, () => {
     console.log(`\n✅ KheZwo is running!`);
