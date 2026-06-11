@@ -65,6 +65,7 @@ app.get('/api/menu/:vendorId', async (req, res) => {
             vendor: {
                 id: vendor.id,
                 business_name: vendor.business_name,
+                business_type: vendor.business_type,
                 logo_url: vendor.logo_url,
                 background_image: vendor.background_image,
                 is_open: vendor.is_open,
@@ -89,14 +90,30 @@ app.post('/api/place-order', async (req, res) => {
         const random = Math.floor(Math.random() * 1000);
         const orderNumber = `${vendor_id}-${timestamp}-${random}`;
         
+        // Get vendor's platform fee percentage
+        const vendorResult = await query(`SELECT platform_fee_percentage FROM vendors WHERE id = $1`, [vendor_id]);
+        const platformFeePercent = vendorResult.rows[0]?.platform_fee_percentage || 5;
+        const platformFee = (total * platformFeePercent) / 100;
+        
         const result = await query(
-            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', CURRENT_TIMESTAMP)
+            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, platform_fee, payment_method, status, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', CURRENT_TIMESTAMP)
              RETURNING order_number`,
-            [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
+            [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, platformFee, payment_method]
         );
         
-        res.json({ success: true, order_number: result.rows[0].order_number });
+        // Create order tracking entry
+        await query(
+            `INSERT INTO order_tracking (order_id, status) VALUES ((SELECT id FROM orders WHERE order_number = $1), 'received')`,
+            [result.rows[0].order_number]
+        );
+        
+        res.json({ 
+            success: true, 
+            order_number: result.rows[0].order_number,
+            platform_fee: platformFee,
+            total_with_fee: total + platformFee
+        });
     } catch (err) {
         console.error('Place order error:', err);
         res.status(500).json({ error: err.message });
@@ -106,7 +123,11 @@ app.post('/api/place-order', async (req, res) => {
 // ============= VENDOR AUTH =============
 
 app.post('/vendor/signup', async (req, res) => {
-    const { business_name, owner_name, email, phone, password } = req.body;
+    const { 
+        business_name, owner_name, email, phone, password,
+        business_type, business_size, subscription_tier,
+        has_branches, branch_count 
+    } = req.body;
     
     if (!business_name || !owner_name || !email || !phone || !password) {
         return res.status(400).json({ error: 'All fields required' });
@@ -116,15 +137,33 @@ app.post('/vendor/signup', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         
         const result = await query(
-            `INSERT INTO vendors (business_name, owner_name, email, phone, password, created_at) 
-             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING id`,
-            [business_name, owner_name, email, phone, hashedPassword]
+            `INSERT INTO vendors (
+                business_name, owner_name, email, phone, password, 
+                business_type, business_size, subscription_tier,
+                created_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP) RETURNING id`,
+            [business_name, owner_name, email, phone, hashedPassword, 
+             business_type || 'restaurant', business_size || 'small', subscription_tier || 'free']
         );
         
         const vendorId = result.rows[0].id;
         const baseUrl = getBaseUrl();
         const qrUrl = `${baseUrl}/menu/${vendorId}`;
         qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, () => {});
+        
+        // If multiple branches, mark as headquarters
+        if (has_branches === 'yes' && branch_count && branch_count > 1) {
+            await query(
+                `UPDATE vendors SET is_headquarters = true WHERE id = $1`,
+                [vendorId]
+            );
+        }
+        
+        // Log signup in audit log
+        await query(
+            `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'signup', $2)`,
+            [vendorId, JSON.stringify({ business_type, business_size, subscription_tier })]
+        );
         
         res.json({ success: true, vendor_id: vendorId });
     } catch (err) {
@@ -149,10 +188,22 @@ app.post('/vendor/login', async (req, res) => {
         const valid = await bcrypt.compare(password, vendor.password);
         
         if (!valid) {
+            // Log failed login attempt
+            await query(
+                `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'failed_login', $2)`,
+                [vendor.id, JSON.stringify({ ip: req.ip })]
+            );
             return res.status(400).json({ error: 'Invalid credentials' });
         }
         
         req.session.vendor = vendor;
+        
+        // Log successful login
+        await query(
+            `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'login', $2)`,
+            [vendor.id, JSON.stringify({ ip: req.ip })]
+        );
+        
         res.json({ success: true, redirect: '/vendor-dashboard.html' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -160,6 +211,9 @@ app.post('/vendor/login', async (req, res) => {
 });
 
 app.get('/vendor/logout', (req, res) => {
+    if (req.session.vendor) {
+        query(`INSERT INTO audit_logs (vendor_id, action) VALUES ($1, 'logout')`, [req.session.vendor.id]);
+    }
     req.session.destroy();
     res.redirect('/');
 });
@@ -176,10 +230,18 @@ app.get('/api/vendor/data', async (req, res) => {
         const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 ORDER BY id DESC`, [vendorId]);
         const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 AND status = 'pending' ORDER BY created_at DESC`, [vendorId]);
         
+        // Get branch info if multi-branch
+        let branches = [];
+        if (vendorResult.rows[0].is_headquarters) {
+            const branchesResult = await query(`SELECT * FROM vendors WHERE parent_id = $1`, [vendorId]);
+            branches = branchesResult.rows;
+        }
+        
         res.json({
             vendor: vendorResult.rows[0],
             menu_items: itemsResult.rows || [],
-            orders: ordersResult.rows || []
+            orders: ordersResult.rows || [],
+            branches: branches
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -271,7 +333,7 @@ app.post('/api/vendor/toggle-availability', async (req, res) => {
     }
 });
 
-// ============= VENDOR PROFILE (FIXED - PRESERVES IMAGES) =============
+// ============= VENDOR PROFILE (PRESERVES IMAGES) =============
 
 app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
@@ -279,12 +341,10 @@ app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) =
     const { business_name, owner_name, phone, address, is_open, closed_message } = req.body;
     
     try {
-        // Get current vendor data to preserve images
         const currentVendor = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
         let logoUrl = currentVendor.rows[0].logo_url;
         let backgroundImage = currentVendor.rows[0].background_image;
         
-        // Only update logo if a new file was uploaded
         if (req.file) {
             logoUrl = `/uploads/${req.file.filename}`;
         }
@@ -303,7 +363,6 @@ app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) =
             [business_name, owner_name, phone, address, is_open || 1, closed_message || null, logoUrl, backgroundImage, req.session.vendor.id]
         );
         
-        // Update session
         const result = await query(`SELECT * FROM vendors WHERE id = $1`, [req.session.vendor.id]);
         req.session.vendor = result.rows[0];
         
@@ -366,7 +425,30 @@ app.post('/api/vendor/update-order-status', async (req, res) => {
             `UPDATE orders SET status = $1 WHERE id = $2 AND vendor_id = $3`,
             [status, order_id, req.session.vendor.id]
         );
+        
+        // Update order tracking
+        await query(
+            `INSERT INTO order_tracking (order_id, status) VALUES ($1, $2)`,
+            [order_id, status]
+        );
+        
         res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============= ORDER TRACKING =============
+
+app.get('/api/order-tracking/:orderId', async (req, res) => {
+    const orderId = req.params.orderId;
+    
+    try {
+        const tracking = await query(
+            `SELECT status, estimated_time, updated_at FROM order_tracking WHERE order_id = $1 ORDER BY updated_at DESC`,
+            [orderId]
+        );
+        res.json(tracking.rows || []);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -448,17 +530,26 @@ app.get('/api/vendor/analytics', async (req, res) => {
                 total_orders: 0,
                 avg_order_value: 0,
                 total_items_sold: 0,
+                platform_fees: 0,
                 top_items: [],
-                daily_sales: []
+                daily_sales: [],
+                sales_by_hour: [],
+                slow_moving_items: []
             });
         }
         
         let totalSales = 0;
+        let totalPlatformFees = 0;
         let totalItemsSold = 0;
         const itemCounts = {};
+        const hourCounts = {};
         
         for (const order of orders) {
             totalSales += parseFloat(order.total);
+            totalPlatformFees += parseFloat(order.platform_fee || 0);
+            
+            const hour = new Date(order.created_at).getHours();
+            hourCounts[hour] = (hourCounts[hour] || 0) + 1;
             
             let items;
             try {
@@ -485,7 +576,14 @@ app.get('/api/vendor/analytics', async (req, res) => {
         const topItems = Object.entries(itemCounts)
             .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
             .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+        
+        const slowMovingItems = Object.entries(itemCounts)
+            .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
+            .sort((a, b) => a.count - b.count)
             .slice(0, 5);
+        
+        const salesByHour = Object.entries(hourCounts).map(([hour, count]) => ({ hour: parseInt(hour), orders: count }));
         
         const dailyMap = {};
         for (const order of orders) {
@@ -503,8 +601,11 @@ app.get('/api/vendor/analytics', async (req, res) => {
             total_orders: orders.length,
             avg_order_value: orders.length > 0 ? totalSales / orders.length : 0,
             total_items_sold: totalItemsSold,
+            platform_fees: totalPlatformFees,
             top_items: topItems,
-            daily_sales: dailySales
+            slow_moving_items: slowMovingItems,
+            daily_sales: dailySales,
+            sales_by_hour: salesByHour
         });
         
     } catch (err) {
@@ -514,8 +615,11 @@ app.get('/api/vendor/analytics', async (req, res) => {
             total_orders: 0,
             avg_order_value: 0,
             total_items_sold: 0,
+            platform_fees: 0,
             top_items: [],
-            daily_sales: []
+            slow_moving_items: [],
+            daily_sales: [],
+            sales_by_hour: []
         });
     }
 });
@@ -551,8 +655,12 @@ app.get('/api/admin/vendors', async (req, res) => {
     
     try {
         const result = await query(`
-            SELECT v.*, (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders 
-            FROM vendors v ORDER BY v.created_at DESC
+            SELECT v.*, 
+                   (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders,
+                   s.name as subscription_name
+            FROM vendors v
+            LEFT JOIN subscription_plans s ON v.subscription_tier = s.tier
+            ORDER BY v.created_at DESC
         `);
         res.json(result.rows || []);
     } catch (err) {
@@ -579,7 +687,8 @@ app.get('/api/admin/orders', async (req, res) => {
     try {
         const result = await query(`
             SELECT o.*, v.business_name as vendor_name 
-            FROM orders o JOIN vendors v ON o.vendor_id = v.id 
+            FROM orders o 
+            JOIN vendors v ON o.vendor_id = v.id 
             ORDER BY o.created_at DESC LIMIT 100
         `);
         res.json(result.rows || []);
@@ -596,16 +705,68 @@ app.get('/api/admin/stats', async (req, res) => {
         const activeVendors = await query(`SELECT COUNT(*) FROM vendors WHERE is_suspended = 0`);
         const suspendedVendors = await query(`SELECT COUNT(*) FROM vendors WHERE is_suspended = 1`);
         const totalOrders = await query(`SELECT COUNT(*) FROM orders`);
+        const totalRevenue = await query(`SELECT COALESCE(SUM(platform_fee), 0) as total FROM orders`);
+        const vendorsByType = await query(`SELECT business_type, COUNT(*) as count FROM vendors GROUP BY business_type`);
         
         res.json({
             total_vendors: parseInt(totalVendors.rows[0].count),
             active_vendors: parseInt(activeVendors.rows[0].count),
             suspended_vendors: parseInt(suspendedVendors.rows[0].count),
-            total_orders: parseInt(totalOrders.rows[0].count)
+            total_orders: parseInt(totalOrders.rows[0].count),
+            total_platform_revenue: parseFloat(totalRevenue.rows[0].total),
+            vendors_by_type: vendorsByType.rows
         });
     } catch (err) {
-        res.json({ total_vendors: 0, active_vendors: 0, suspended_vendors: 0, total_orders: 0 });
+        res.json({ total_vendors: 0, active_vendors: 0, suspended_vendors: 0, total_orders: 0, total_platform_revenue: 0, vendors_by_type: [] });
     }
+});
+
+// ============= AD MANAGEMENT ROUTES =============
+
+app.get('/api/admin/sponsor-ads', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const result = await query(`SELECT * FROM sponsor_ads ORDER BY id DESC`);
+    res.json(result.rows || []);
+});
+
+app.post('/api/admin/add-sponsor', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { name, link } = req.body;
+    
+    await query(`INSERT INTO sponsor_ads (name, link) VALUES ($1, $2)`, [name, link]);
+    res.json({ success: true });
+});
+
+app.delete('/api/admin/delete-sponsor/:id', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { id } = req.params;
+    
+    await query(`DELETE FROM sponsor_ads WHERE id = $1`, [id]);
+    res.json({ success: true });
+});
+
+app.get('/api/admin/ad-settings', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const result = await query(`SELECT * FROM ad_settings LIMIT 1`);
+    res.json(result.rows[0] || {});
+});
+
+app.post('/api/admin/ad-settings', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { adsense_client, top_slot, middle_slot } = req.body;
+    
+    await query(`
+        INSERT INTO ad_settings (id, adsense_client, top_slot, middle_slot, updated_at) 
+        VALUES (1, $1, $2, $3, CURRENT_TIMESTAMP)
+        ON CONFLICT (id) DO UPDATE SET 
+            adsense_client = EXCLUDED.adsense_client,
+            top_slot = EXCLUDED.top_slot,
+            middle_slot = EXCLUDED.middle_slot,
+            updated_at = CURRENT_TIMESTAMP
+    `, [adsense_client, top_slot, middle_slot]);
+    res.json({ success: true });
 });
 
 // ============= FIX ENDPOINTS =============
@@ -640,6 +801,13 @@ app.get('/api/fix-database', async (req, res) => {
     try {
         await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key`);
         await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT`);
+        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS business_type TEXT DEFAULT 'restaurant'`);
+        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS business_size TEXT DEFAULT 'small'`);
+        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'free'`);
+        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES vendors(id)`);
+        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS is_headquarters BOOLEAN DEFAULT FALSE`);
+        await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT 0`);
+        await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS platform_fee_percentage DECIMAL(5,2) DEFAULT 5`);
         res.json({ success: true, message: 'Database fixed!' });
     } catch (err) {
         res.json({ error: err.message });
