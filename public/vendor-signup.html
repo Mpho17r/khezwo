@@ -3,197 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vendor Sign Up - KheZwo</title>
+    <title>Sign Up - KheZwo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 40px 20px;
         }
-        
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        
+        .container { max-width: 600px; margin: 0 auto; }
         .card {
             background: white;
-            border-radius: 16px;
+            border-radius: 30px;
             padding: 40px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.2);
         }
+        h1 { font-size: 28px; margin-bottom: 8px; color: #1a1a2e; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
         
-        .logo {
-            text-align: center;
-            font-size: 28px;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 30px;
-        }
-        
-        h1 {
-            font-size: 24px;
-            text-align: center;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
-        }
-        
-        input, textarea {
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
+        input, select, textarea {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 16px;
             font-size: 16px;
-            transition: border-color 0.2s;
+            transition: all 0.3s;
         }
-        
-        input:focus, textarea:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: #667eea;
         }
         
+        .business-types {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .type-card {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 16px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .type-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea10, #764ba210);
+        }
+        .type-card .icon { font-size: 32px; margin-bottom: 8px; }
+        .type-card .name { font-weight: 600; font-size: 14px; }
+        
+        .size-options {
+            display: flex;
+            gap: 12px;
+        }
+        .size-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .size-btn.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        
         .btn {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 30px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-        
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        
-        .login-link {
-            text-align: center;
             margin-top: 20px;
-            color: #666;
-            font-size: 14px;
         }
         
-        .login-link a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-        }
+        .error { background: #fee; color: #c33; padding: 12px; border-radius: 12px; margin-bottom: 20px; display: none; }
+        .success { background: #e8f5e9; color: #2e7d32; padding: 12px; border-radius: 12px; margin-bottom: 20px; display: none; }
         
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-        
-        .error {
-            background: #fee;
-            color: #c33;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
+        .branch-section {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
             display: none;
         }
-        
-        .success {
-            background: #e8f5e9;
-            color: #2e7d32;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            display: none;
-        }
-        
-        .info {
-            background: #e3f2fd;
-            color: #1565c0;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-        
-        .info a {
-            color: #1565c0;
-            font-weight: bold;
-        }
+        .branch-section.active { display: block; }
         
         @media (max-width: 768px) {
-            .card {
-                padding: 25px;
-            }
-            
-            h1 {
-                font-size: 20px;
-            }
+            .business-types { grid-template-columns: repeat(2, 1fr); }
+            .card { padding: 25px; }
+            .size-options { flex-direction: column; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card">
-            <div class="logo">KheZwo</div>
-            <h1>Start Your Digital Menu</h1>
-            <div class="subtitle">Join hundreds of businesses going paperless</div>
+            <h1>Start Your Business</h1>
+            <div class="subtitle">Join KheZwo's digital platform</div>
             
             <div id="errorMsg" class="error"></div>
             <div id="successMsg" class="success"></div>
-            <div id="infoMsg" class="info">
-                💡 Tip: After signing up, you'll get a QR code to print and display.
-            </div>
             
             <form id="signupForm">
                 <div class="form-group">
+                    <label>Business Type *</label>
+                    <div class="business-types" id="businessTypes">
+                        <div class="type-card" data-type="restaurant">
+                            <div class="icon">🍽️</div>
+                            <div class="name">Restaurant</div>
+                        </div>
+                        <div class="type-card" data-type="clothing">
+                            <div class="icon">👕</div>
+                            <div class="name">Clothing Store</div>
+                        </div>
+                        <div class="type-card" data-type="farming">
+                            <div class="icon">🌾</div>
+                            <div class="name">Farm/Agri</div>
+                        </div>
+                        <div class="type-card" data-type="retail">
+                            <div class="icon">🛍️</div>
+                            <div class="name">Retail Store</div>
+                        </div>
+                        <div class="type-card" data-type="services">
+                            <div class="icon">🔧</div>
+                            <div class="name">Services</div>
+                        </div>
+                        <div class="type-card" data-type="other">
+                            <div class="icon">📦</div>
+                            <div class="name">Other</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="businessType" value="restaurant">
+                </div>
+                
+                <div class="form-group">
+                    <label>Business Size *</label>
+                    <div class="size-options" id="sizeOptions">
+                        <div class="size-btn" data-size="small">Small (1-10 staff)</div>
+                        <div class="size-btn" data-size="medium">Medium (11-50 staff)</div>
+                        <div class="size-btn" data-size="large">Large (50+ staff)</div>
+                    </div>
+                    <input type="hidden" id="businessSize" value="small">
+                </div>
+                
+                <div class="form-group">
                     <label>Business Name *</label>
-                    <input type="text" id="businessName" required placeholder="e.g., The Coffee House">
+                    <input type="text" id="businessName" required placeholder="Your business name">
                 </div>
                 
                 <div class="form-group">
                     <label>Owner Name *</label>
-                    <input type="text" id="ownerName" required placeholder="Your full name">
+                    <input type="text" id="ownerName" required placeholder="Full name">
                 </div>
                 
                 <div class="form-group">
-                    <label>Email Address *</label>
-                    <input type="email" id="email" required placeholder="you@business.com">
+                    <label>Email *</label>
+                    <input type="email" id="email" required placeholder="business@email.com">
                 </div>
                 
                 <div class="form-group">
-                    <label>Phone Number *</label>
-                    <input type="tel" id="phone" required placeholder="e.g., 0712345678">
+                    <label>Phone *</label>
+                    <input type="tel" id="phone" required placeholder="Phone number">
                 </div>
                 
                 <div class="form-group">
@@ -203,42 +189,93 @@
                 
                 <div class="form-group">
                     <label>Confirm Password *</label>
-                    <input type="password" id="confirmPassword" required placeholder="Type password again">
+                    <input type="password" id="confirmPassword" required placeholder="Confirm password">
                 </div>
                 
-                <button type="submit" class="btn" id="submitBtn">Create Account →</button>
+                <div class="form-group">
+                    <label>Do you have multiple locations? *</label>
+                    <select id="hasBranches">
+                        <option value="no">No, single location</option>
+                        <option value="yes">Yes, multiple branches</option>
+                    </select>
+                </div>
+                
+                <div id="branchSection" class="branch-section">
+                    <label>How many branches do you have?</label>
+                    <input type="number" id="branchCount" min="1" max="50" placeholder="Number of branches">
+                    <small>You'll be able to manage all branches from one dashboard</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Select Plan *</label>
+                    <select id="subscriptionTier">
+                        <option value="free">Free - Basic features, KheZwo branding</option>
+                        <option value="pro">Pro - R299/month - Advanced analytics, custom branding</option>
+                        <option value="enterprise">Enterprise - Custom pricing - Multi-branch, priority support</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">Start Your Journey →</button>
             </form>
             
-            <div class="login-link">
+            <p style="text-align: center; margin-top: 20px;">
                 Already have an account? <a href="/vendor-login.html">Login here</a>
-            </div>
+            </p>
         </div>
     </div>
     
     <script>
-        const form = document.getElementById('signupForm');
-        const errorMsg = document.getElementById('errorMsg');
-        const successMsg = document.getElementById('successMsg');
-        const submitBtn = document.getElementById('submitBtn');
+        // Business type selection
+        document.querySelectorAll('.type-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                document.getElementById('businessType').value = card.dataset.type;
+            });
+        });
         
-        form.addEventListener('submit', async (e) => {
+        // Business size selection
+        document.querySelectorAll('.size-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                document.getElementById('businessSize').value = btn.dataset.size;
+            });
+        });
+        
+        // Show/hide branch section
+        document.getElementById('hasBranches').addEventListener('change', (e) => {
+            const section = document.getElementById('branchSection');
+            if (e.target.value === 'yes') {
+                section.classList.add('active');
+            } else {
+                section.classList.remove('active');
+            }
+        });
+        
+        // Form submission
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // Hide previous messages
-            errorMsg.style.display = 'none';
-            successMsg.style.display = 'none';
-            
-            // Get values
-            const businessName = document.getElementById('businessName').value.trim();
-            const ownerName = document.getElementById('ownerName').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const phone = document.getElementById('phone').value.trim();
+            const businessName = document.getElementById('businessName').value;
+            const ownerName = document.getElementById('ownerName').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
             const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            const businessType = document.getElementById('businessType').value;
+            const businessSize = document.getElementById('businessSize').value;
+            const subscriptionTier = document.getElementById('subscriptionTier').value;
+            const hasBranches = document.getElementById('hasBranches').value;
+            const branchCount = document.getElementById('branchCount').value;
             
-            // Validation
             if (!businessName || !ownerName || !email || !phone || !password) {
                 showError('Please fill in all fields');
+                return;
+            }
+            
+            if (password !== confirm) {
+                showError('Passwords do not match');
                 return;
             }
             
@@ -247,71 +284,58 @@
                 return;
             }
             
-            if (password !== confirmPassword) {
-                showError('Passwords do not match');
-                return;
-            }
-            
-            if (!email.includes('@')) {
-                showError('Please enter a valid email address');
-                return;
-            }
-            
-            // Disable button and show loading
+            const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Creating Account...';
             
             try {
                 const response = await fetch('/vendor/signup', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         business_name: businessName,
                         owner_name: ownerName,
                         email: email,
                         phone: phone,
-                        password: password
+                        password: password,
+                        business_type: businessType,
+                        business_size: businessSize,
+                        subscription_tier: subscriptionTier,
+                        has_branches: hasBranches,
+                        branch_count: branchCount
                     })
                 });
                 
                 const data = await response.json();
                 
-                if (response.ok && data.success) {
-                    showSuccess('Account created successfully! Redirecting to login...');
-                    
-                    // Clear form
-                    form.reset();
-                    
-                    // Redirect after 2 seconds
+                if (response.ok) {
+                    showSuccess('Account created! Redirecting to dashboard...');
                     setTimeout(() => {
                         window.location.href = '/vendor-login.html';
                     }, 2000);
                 } else {
-                    showError(data.error || 'Signup failed. Please try again.');
+                    showError(data.error || 'Signup failed');
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'Create Account →';
+                    submitBtn.textContent = 'Start Your Journey →';
                 }
             } catch (err) {
-                console.error('Error:', err);
-                showError('Network error. Please check if the server is running.');
+                showError('Network error. Please try again.');
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Create Account →';
+                submitBtn.textContent = 'Start Your Journey →';
             }
         });
         
-        function showError(message) {
-            errorMsg.textContent = message;
-            errorMsg.style.display = 'block';
-            setTimeout(() => {
-                errorMsg.style.display = 'none';
-            }, 5000);
+        function showError(msg) {
+            const errorDiv = document.getElementById('errorMsg');
+            errorDiv.textContent = msg;
+            errorDiv.style.display = 'block';
+            setTimeout(() => errorDiv.style.display = 'none', 5000);
         }
         
-        function showSuccess(message) {
-            successMsg.textContent = message;
-            successMsg.style.display = 'block';
+        function showSuccess(msg) {
+            const successDiv = document.getElementById('successMsg');
+            successDiv.textContent = msg;
+            successDiv.style.display = 'block';
         }
     </script>
 </body>

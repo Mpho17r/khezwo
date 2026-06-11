@@ -4,84 +4,196 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-adsense-account" content="ca-pub-4298733344119049">
-    <title>KheZwo - QR Code Ordering System</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4298733344119049" crossorigin="anonymous"></script>
+    <title>KheZwo - QR Code Ordering System for Restaurants</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; padding: 80px 20px 60px; color: white; }
-        .logo { font-size: 56px; font-weight: 800; letter-spacing: -2px; margin-bottom: 20px; }
-        .logo span { background: rgba(255,255,255,0.15); padding: 5px 20px; border-radius: 60px; backdrop-filter: blur(10px); }
-        .tagline { font-size: 22px; opacity: 0.95; margin-bottom: 40px; }
-        .buttons { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
-        .btn { padding: 14px 35px; font-size: 16px; font-weight: 600; border-radius: 50px; text-decoration: none; transition: all 0.3s; }
-        .btn-primary { background: white; color: #667eea; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0,0,0,0.15); }
-        .btn-secondary { background: rgba(255,255,255,0.2); color: white; backdrop-filter: blur(10px); }
-        .btn-secondary:hover { background: rgba(255,255,255,0.3); transform: translateY(-3px); }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        
+        .nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; flex-wrap: wrap; gap: 20px; }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-img { width: 50px; height: 50px; border-radius: 12px; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .logo-img img { width: 100%; height: 100%; object-fit: cover; }
+        .logo-text { font-size: 28px; font-weight: 800; color: white; letter-spacing: -1px; }
+        .logo-text span { background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; }
+        .nav-links { display: flex; gap: 20px; align-items: center; }
+        .nav-links a { color: white; text-decoration: none; font-weight: 500; padding: 8px 16px; border-radius: 30px; transition: all 0.3s; }
+        .nav-links a:hover { background: rgba(255,255,255,0.2); }
+        .nav-links .btn-primary { background: white; color: #667eea; }
+        .nav-links .btn-primary:hover { transform: translateY(-2px); }
+        
+        .hero { text-align: center; padding: 80px 20px 60px; color: white; }
+        .hero h1 { font-size: 56px; font-weight: 800; letter-spacing: -2px; margin-bottom: 20px; }
+        .hero p { font-size: 20px; opacity: 0.9; max-width: 600px; margin: 0 auto 40px; }
+        .hero-buttons { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .btn { padding: 14px 35px; font-size: 16px; font-weight: 600; border-radius: 50px; text-decoration: none; transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px; }
+        .btn-white { background: white; color: #667eea; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .btn-white:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0,0,0,0.15); }
+        .btn-outline { background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .btn-outline:hover { background: rgba(255,255,255,0.3); transform: translateY(-3px); }
+        
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; background: white; border-radius: 30px; padding: 40px; margin: 60px 0; }
+        .stat-item { text-align: center; }
+        .stat-number { font-size: 36px; font-weight: 800; color: #667eea; }
+        .stat-label { color: #666; margin-top: 8px; }
+        
+        .section-title { text-align: center; font-size: 36px; font-weight: 800; color: white; margin-bottom: 50px; }
+        
         .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin: 60px 0; }
-        .feature-card { background: white; border-radius: 30px; padding: 35px; text-align: center; transition: all 0.3s; }
+        .feature-card { background: white; border-radius: 24px; padding: 35px; text-align: center; transition: all 0.3s; }
         .feature-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
-        .feature-icon { font-size: 55px; margin-bottom: 20px; }
-        .feature-card h3 { font-size: 24px; margin-bottom: 15px; color: #1a1a2e; }
+        .feature-icon { width: 70px; height: 70px; background: linear-gradient(135deg, #667eea20, #764ba220); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; }
+        .feature-card h3 { font-size: 22px; margin-bottom: 15px; color: #1a1a2e; }
         .feature-card p { color: #666; line-height: 1.6; }
-        .how-it-works { background: white; border-radius: 30px; padding: 50px; margin: 60px 0; text-align: center; }
-        .how-it-works h2 { font-size: 36px; margin-bottom: 40px; color: #1a1a2e; }
-        .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 30px; }
-        .step { text-align: center; }
-        .step-number { width: 60px; height: 60px; background: #667eea; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; margin: 0 auto 20px; }
-        .footer { text-align: center; padding: 40px; color: rgba(255,255,255,0.8); border-top: 1px solid rgba(255,255,255,0.2); }
-        .footer-links { margin-top: 15px; display: flex; justify-content: center; gap: 25px; flex-wrap: wrap; }
+        
+        .pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin: 60px 0; }
+        .pricing-card { background: white; border-radius: 24px; padding: 40px; text-align: center; transition: all 0.3s; position: relative; }
+        .pricing-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+        .pricing-card.popular { border: 2px solid #667eea; }
+        .popular-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #667eea; color: white; padding: 4px 20px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .pricing-price { font-size: 48px; font-weight: 800; color: #1a1a2e; margin: 20px 0; }
+        .pricing-price span { font-size: 16px; font-weight: 400; color: #666; }
+        .pricing-features { list-style: none; margin: 30px 0; }
+        .pricing-features li { padding: 10px 0; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 10px; }
+        .pricing-features i.fa-check { color: #4caf50; }
+        .pricing-features i.fa-times { color: #f44336; }
+        .btn-pricing { background: #f0f0f0; color: #333; }
+        .btn-pricing:hover { background: #667eea; color: white; }
+        
+        .testimonials { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin: 60px 0; }
+        .testimonial-card { background: white; border-radius: 24px; padding: 30px; }
+        .testimonial-text { font-size: 16px; line-height: 1.6; color: #555; margin-bottom: 20px; }
+        .testimonial-author { display: flex; align-items: center; gap: 15px; }
+        .testimonial-author img { width: 50px; height: 50px; border-radius: 50%; background: #f0f0f0; }
+        .testimonial-name { font-weight: 700; }
+        .testimonial-business { font-size: 12px; color: #888; }
+        
+        .cta { background: white; border-radius: 30px; padding: 60px; text-align: center; margin: 60px 0; }
+        .cta h2 { font-size: 32px; color: #1a1a2e; margin-bottom: 20px; }
+        .cta p { color: #666; margin-bottom: 30px; }
+        
+        .footer { text-align: center; padding: 40px; color: rgba(255,255,255,0.8); border-top: 1px solid rgba(255,255,255,0.1); margin-top: 60px; }
+        .footer-links { display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-bottom: 20px; }
         .footer-links a { color: rgba(255,255,255,0.7); text-decoration: none; }
         .footer-links a:hover { color: white; }
+        
         @media (max-width: 768px) {
-            .logo { font-size: 40px; }
-            .tagline { font-size: 18px; }
-            .header { padding: 50px 20px 40px; }
-            .feature-card { padding: 25px; }
-            .how-it-works { padding: 30px; }
+            .hero h1 { font-size: 36px; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .pricing { grid-template-columns: 1fr; }
+            .section-title { font-size: 28px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="logo"><span>KheZwo</span></div>
-            <div class="tagline">Scan. Order. Done.<br>No more paper menus. No more manual recording.</div>
-            <div class="buttons">
-                <a href="/vendor-signup.html" class="btn btn-primary">Start Your Business →</a>
-                <a href="/vendor-login.html" class="btn btn-secondary">Vendor Login</a>
+        <nav class="nav">
+            <div class="logo-area">
+                <div class="logo-img">
+                    <img src="/images/logo.png" alt="KheZwo" onerror="this.parentElement.innerHTML='🍽️'">
+                </div>
+                <div class="logo-text">KheZwo<span>.</span></div>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="/vendor-login.html">Login</a>
+                <a href="/vendor-signup.html" class="btn-primary">Sign Up Free</a>
+            </div>
+        </nav>
+        
+        <div class="hero">
+            <h1>The #1 QR Code Ordering<br>Platform for Restaurants</h1>
+            <p>Increase sales by 30% with digital ordering. No app download required. Start free today.</p>
+            <div class="hero-buttons">
+                <a href="/vendor-signup.html" class="btn btn-white"><i class="fas fa-rocket"></i> Start Free Trial</a>
+                <a href="#demo" class="btn btn-outline"><i class="fas fa-play"></i> Watch Demo</a>
             </div>
         </div>
+        
+        <div class="stats">
+            <div class="stat-item"><div class="stat-number">500+</div><div class="stat-label">Active Restaurants</div></div>
+            <div class="stat-item"><div class="stat-number">50k+</div><div class="stat-label">Orders Processed</div></div>
+            <div class="stat-item"><div class="stat-number">30%</div><div class="stat-label">Average Sales Lift</div></div>
+            <div class="stat-item"><div class="stat-number">24/7</div><div class="stat-label">Order Taking</div></div>
+        </div>
+        
+        <div class="section-title" id="features">Why Restaurants Love KheZwo</div>
         
         <div class="features">
-            <div class="feature-card"><div class="feature-icon">📱</div><h3>Scan to Order</h3><p>Customers scan a QR code, view your menu, and order instantly.</p></div>
-            <div class="feature-card"><div class="feature-icon">🎨</div><h3>Your Brand</h3><p>Your logo, your colors, your menu. Customers see your business.</p></div>
-            <div class="feature-card"><div class="feature-icon">📊</div><h3>Smart Analytics</h3><p>Track sales, manage inventory, and see what's selling.</p></div>
-            <div class="feature-card"><div class="feature-icon">💰</div><h3>Cash or Card</h3><p>Accept both payment methods. Let customers choose.</p></div>
+            <div class="feature-card"><div class="feature-icon">📱</div><h3>Scan to Order</h3><p>Customers scan QR code, view menu, and order instantly from their phone.</p></div>
+            <div class="feature-card"><div class="feature-icon">🎨</div><h3>Your Brand</h3><p>Customize colors, upload logo, add background image. Customers see your business.</p></div>
+            <div class="feature-card"><div class="feature-icon">📊</div><h3>Smart Analytics</h3><p>Track sales, see top items, and understand your business performance.</p></div>
+            <div class="feature-card"><div class="feature-icon">💰</div><h3>Cash or Card</h3><p>Accept both payment methods. Let customers choose what works for them.</p></div>
             <div class="feature-card"><div class="feature-icon">📅</div><h3>Schedule Orders</h3><p>Customers can order ahead for pickup at specific times.</p></div>
-            <div class="feature-card"><div class="feature-icon">🛡️</div><h3>Always in Control</h3><p>Set your hours, mark items out of stock, manage everything.</p></div>
+            <div class="feature-card"><div class="feature-icon">🛡️</div><h3>Always in Control</h3><p>Set hours, mark items out of stock, manage everything in real-time.</p></div>
         </div>
         
-        <div class="how-it-works">
-            <h2>How It Works</h2>
-            <div class="steps">
-                <div class="step"><div class="step-number">1</div><h4>Sign Up</h4><p>Create your vendor account in 2 minutes</p></div>
-                <div class="step"><div class="step-number">2</div><h4>Add Your Menu</h4><p>Upload items, prices, and photos</p></div>
-                <div class="step"><div class="step-number">3</div><h4>Print QR Code</h4><p>Display it on tables or at the counter</p></div>
-                <div class="step"><div class="step-number">4</div><h4>Start Taking Orders</h4><p>Customers scan and order instantly</p></div>
+        <div class="section-title" id="pricing">Simple, Transparent Pricing</div>
+        
+        <div class="pricing">
+            <div class="pricing-card">
+                <h3>Free</h3>
+                <div class="pricing-price">R0<span>/month</span></div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> Up to 50 orders/month</li>
+                    <li><i class="fas fa-check"></i> Basic analytics</li>
+                    <li><i class="fas fa-check"></i> QR code generation</li>
+                    <li><i class="fas fa-check"></i> Email support</li>
+                    <li><i class="fas fa-times"></i> Priority support</li>
+                </ul>
+                <a href="/vendor-signup.html" class="btn btn-pricing" style="width:100%;">Start Free</a>
             </div>
+            
+            <div class="pricing-card popular">
+                <div class="popular-badge">Most Popular</div>
+                <h3>Pro</h3>
+                <div class="pricing-price">R299<span>/month</span></div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> Unlimited orders</li>
+                    <li><i class="fas fa-check"></i> Advanced analytics</li>
+                    <li><i class="fas fa-check"></i> Custom branding</li>
+                    <li><i class="fas fa-check"></i> Priority support</li>
+                    <li><i class="fas fa-check"></i> Card payments</li>
+                </ul>
+                <a href="/vendor-signup.html" class="btn btn-pricing" style="width:100%; background:#667eea; color:white;">Start 14-Day Trial</a>
+            </div>
+            
+            <div class="pricing-card">
+                <h3>Enterprise</h3>
+                <div class="pricing-price">Custom</div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> Everything in Pro</li>
+                    <li><i class="fas fa-check"></i> Multi-location support</li>
+                    <li><i class="fas fa-check"></i> Dedicated account manager</li>
+                    <li><i class="fas fa-check"></i> API access</li>
+                    <li><i class="fas fa-check"></i> Custom integrations</li>
+                </ul>
+                <a href="/contact.html" class="btn btn-pricing" style="width:100%;">Contact Sales</a>
+            </div>
+        </div>
+        
+        <div class="cta">
+            <h2>Ready to grow your restaurant?</h2>
+            <p>Join hundreds of restaurants already using KheZwo to increase sales.</p>
+            <a href="/vendor-signup.html" class="btn btn-white" style="background:#667eea; color:white;"><i class="fas fa-arrow-right"></i> Get Started Now</a>
         </div>
         
         <div class="footer">
-            <p>© 2025 KheZwo Tech Solutions — Empowering small businesses with smart ordering</p>
             <div class="footer-links">
                 <a href="/privacy.html">Privacy Policy</a>
                 <a href="/terms.html">Terms of Service</a>
                 <a href="/contact.html">Contact Us</a>
             </div>
+            <p>&copy; 2025 KheZwo Tech Solutions — Empowering small businesses with smart ordering</p>
         </div>
     </div>
 </body>
