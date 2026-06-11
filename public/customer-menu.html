@@ -3,20 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Menu - KheZwo Ordering</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Menu - KheZwo</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #f8f9fa; padding-bottom: 80px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; padding-bottom: 80px; }
         
         .vendor-header {
-            position: relative;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 50px 20px 40px;
             text-align: center;
-            background-size: cover;
-            background-position: center;
+            position: relative;
+            min-height: 260px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .vendor-header.default {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        
+        .vendor-header.custom {
+            background-size: cover !important;
+            background-position: center !important;
+        }
+        
+        .vendor-header .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.4);
+        }
+        
+        .vendor-header > * {
+            position: relative;
+            z-index: 1;
         }
         
         .vendor-logo {
@@ -29,14 +53,12 @@
             justify-content: center;
             margin: 0 auto 20px;
             overflow: hidden;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            position: relative;
-            z-index: 2;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
         
         .vendor-logo img { width: 100%; height: 100%; object-fit: cover; }
-        .vendor-name { font-size: 28px; font-weight: 800; margin-bottom: 8px; position: relative; z-index: 2; }
-        .vendor-status { display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); position: relative; z-index: 2; }
+        .vendor-name { font-size: 28px; font-weight: 800; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .vendor-status { display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
         
         .menu-section { max-width: 600px; margin: 0 auto; padding: 20px; }
         .menu-item {
@@ -46,15 +68,12 @@
             padding: 16px;
             display: flex;
             gap: 16px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            transition: all 0.2s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        .menu-item:active { transform: scale(0.98); }
-        .menu-item-image { width: 100px; height: 100px; border-radius: 16px; object-fit: cover; background: #f0f0f0; }
+        .menu-item-image { width: 80px; height: 80px; border-radius: 16px; object-fit: cover; background: #f0f0f0; }
         .menu-item-info { flex: 1; }
-        .menu-item-name { font-size: 18px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
-        .menu-item-price { font-size: 20px; font-weight: 800; color: #667eea; }
-        .menu-item-description { font-size: 13px; color: #888; margin: 8px 0; }
+        .menu-item-name { font-size: 18px; font-weight: 700; }
+        .menu-item-price { font-size: 18px; font-weight: 800; color: #667eea; margin: 5px 0; }
         .add-to-cart {
             background: #667eea;
             color: white;
@@ -73,16 +92,16 @@
             right: 20px;
             background: #667eea;
             color: white;
-            width: 65px;
-            height: 65px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 0 8px 25px rgba(102,126,234,0.4);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
             z-index: 100;
-            font-size: 28px;
+            font-size: 24px;
             border: none;
         }
         .cart-count {
@@ -92,9 +111,9 @@
             background: #ff5722;
             color: white;
             border-radius: 50%;
-            width: 25px;
-            height: 25px;
-            font-size: 12px;
+            width: 22px;
+            height: 22px;
+            font-size: 11px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -106,8 +125,8 @@
             left: 0;
             right: 0;
             background: white;
-            border-radius: 30px 30px 0 0;
-            padding: 25px;
+            border-radius: 25px 25px 0 0;
+            padding: 20px;
             transform: translateY(100%);
             transition: transform 0.3s;
             z-index: 200;
@@ -115,23 +134,23 @@
             overflow-y: auto;
         }
         .cart-panel.open { transform: translateY(0); }
-        .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0; }
-        .cart-item-controls { display: flex; align-items: center; gap: 15px; }
-        .cart-item-controls button { width: 35px; height: 35px; border-radius: 50%; border: none; font-size: 18px; cursor: pointer; background: #f0f0f0; }
-        .cart-total { padding: 20px 0; font-size: 22px; font-weight: 800; text-align: right; color: #667eea; }
+        .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+        .cart-item-controls { display: flex; align-items: center; gap: 12px; }
+        .cart-item-controls button { width: 30px; height: 30px; border-radius: 50%; border: none; font-size: 16px; cursor: pointer; background: #f0f0f0; }
+        .cart-total { padding: 15px 0; font-size: 18px; font-weight: 800; text-align: right; color: #667eea; }
         .checkout-btn {
             width: 100%;
-            padding: 18px;
+            padding: 15px;
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            border-radius: 50px;
-            font-size: 18px;
+            border-radius: 30px;
+            font-size: 16px;
             font-weight: 700;
             cursor: pointer;
         }
-        .empty-cart { text-align: center; color: #999; padding: 50px; }
+        .empty-cart { text-align: center; color: #999; padding: 40px; }
         
         .modal {
             display: none;
@@ -148,7 +167,7 @@
         }
         .modal-content {
             background: white;
-            border-radius: 30px;
+            border-radius: 25px;
             padding: 30px;
             width: 90%;
             max-width: 350px;
@@ -156,19 +175,14 @@
         }
         .modal-content input, .modal-content select {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
             margin: 10px 0;
             border: 2px solid #e0e0e0;
-            border-radius: 50px;
+            border-radius: 25px;
         }
         
-        .watermark { text-align: center; padding: 20px; font-size: 12px; color: #bbb; }
+        .watermark { text-align: center; padding: 20px; font-size: 11px; color: #bbb; }
         .loading { text-align: center; padding: 50px; color: #999; }
-        
-        @media (max-width: 480px) {
-            .menu-item-image { width: 70px; height: 70px; }
-            .vendor-name { font-size: 24px; }
-        }
     </style>
 </head>
 <body>
@@ -194,17 +208,29 @@
         }
         
         function render() {
-            let headerStyle = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);';
-            if (vendorData.background_image) {
-                headerStyle = `background: linear-gradient(135deg, rgba(102,126,234,0.85), rgba(118,75,162,0.85)), url(${vendorData.background_image}); background-size: cover; background-position: center;`;
+            let headerHtml = '';
+            const bgImage = vendorData.background_image;
+            
+            if (bgImage && bgImage !== 'null' && bgImage !== '') {
+                headerHtml = `
+                    <div class="vendor-header custom" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${bgImage}); background-size: cover; background-position: center;">
+                        <div class="vendor-logo">${vendorData.logo_url ? `<img src="${vendorData.logo_url}">` : '<div style="font-size:40px;">🍽️</div>'}</div>
+                        <div class="vendor-name">${escapeHtml(vendorData.business_name)}</div>
+                        <div class="vendor-status">${vendorData.is_open ? '● Open Now' : '⛔ Closed'}</div>
+                    </div>
+                `;
+            } else {
+                headerHtml = `
+                    <div class="vendor-header default">
+                        <div class="vendor-logo">${vendorData.logo_url ? `<img src="${vendorData.logo_url}">` : '<div style="font-size:40px;">🍽️</div>'}</div>
+                        <div class="vendor-name">${escapeHtml(vendorData.business_name)}</div>
+                        <div class="vendor-status">${vendorData.is_open ? '● Open Now' : '⛔ Closed'}</div>
+                    </div>
+                `;
             }
             
             document.getElementById('app').innerHTML = `
-                <div class="vendor-header" style="${headerStyle}">
-                    <div class="vendor-logo">${vendorData.logo_url ? `<img src="${vendorData.logo_url}">` : '<div style="font-size:40px;">🍽️</div>'}</div>
-                    <div class="vendor-name">${escapeHtml(vendorData.business_name)}</div>
-                    <div class="vendor-status">${vendorData.is_open ? '● Open Now' : '⛔ Closed'}</div>
-                </div>
+                ${headerHtml}
                 <div class="menu-section" id="menuList"></div>
                 <div class="watermark">Powered by KheZwo ⚡</div>
                 <button class="cart-toggle" onclick="toggleCart()">🛒<span id="cartBadge" class="cart-count" style="display:none;">0</span></button>
@@ -214,27 +240,27 @@
                 </div>
                 <div class="modal" id="checkoutModal">
                     <div class="modal-content">
-                        <h3>Complete Order</h3>
+                        <h3>Complete Your Order</h3>
                         <input type="text" id="customerName" placeholder="Your name">
-                        <input type="tel" id="customerPhone" placeholder="Phone">
-                        <select id="paymentMethod"><option value="cash">Cash</option><option value="card">Card</option></select>
-                        <button onclick="submitOrder()" style="background:#667eea;color:white;border:none;padding:14px;border-radius:50px;width:100%;font-weight:600;">Place Order</button>
-                        <button onclick="closeModal()" style="background:#ccc;border:none;padding:12px;border-radius:50px;width:100%;margin-top:10px;">Cancel</button>
+                        <input type="tel" id="customerPhone" placeholder="Phone number">
+                        <select id="paymentMethod"><option value="cash">Cash</option><option value="card">Card (coming soon)</option></select>
+                        <button onclick="submitOrder()" style="margin-top:15px;">Place Order</button>
+                        <button onclick="closeModal()" style="margin-top:10px; background:#ccc;">Cancel</button>
                     </div>
                 </div>
             `;
             
             const container = document.getElementById('menuList');
             if (menuItems.length === 0) {
-                container.innerHTML = '<div style="text-align:center;padding:50px;color:#999;">No menu items available</div>';
+                container.innerHTML = '<div style="text-align:center;padding:50px;">No menu items available</div>';
                 return;
             }
             container.innerHTML = menuItems.map(item => `
                 <div class="menu-item">
                     ${item.photo_url ? `<img class="menu-item-image" src="${item.photo_url}">` : '<div class="menu-item-image" style="background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:40px;">🍽️</div>'}
                     <div class="menu-item-info">
-                        <div class="menu-item-name"><span>${escapeHtml(item.name)}</span><span class="menu-item-price">R${parseFloat(item.price).toFixed(2)}</span></div>
-                        <div class="menu-item-description">${escapeHtml(item.description || '')}</div>
+                        <div class="menu-item-name">${escapeHtml(item.name)}</div>
+                        <div class="menu-item-price">R${parseFloat(item.price).toFixed(2)}</div>
                         <button class="add-to-cart" onclick="addToCart(${item.id}, '${escapeHtml(item.name).replace(/'/g, "\\'")}', ${item.price})" ${!item.is_available || !vendorData.is_open ? 'disabled' : ''}>${!item.is_available ? 'Out of Stock' : 'Add to Cart'}</button>
                     </div>
                 </div>
@@ -269,7 +295,7 @@
         function renderCart() {
             const container = document.getElementById('cartItems');
             if (!container) return;
-            if (!cart.length) { container.innerHTML = '<div class="empty-cart">🛒 Your cart is empty</div>'; return; }
+            if (!cart.length) { container.innerHTML = '<div class="empty-cart">Your cart is empty</div>'; return; }
             const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             container.innerHTML = cart.map(i => `
                 <div class="cart-item">
@@ -284,14 +310,14 @@
         }
         
         function toggleCart() { document.getElementById('cartPanel').classList.toggle('open'); }
-        function openCheckout() { if (!cart.length) { alert('Cart empty'); return; } document.getElementById('checkoutModal').style.display = 'flex'; toggleCart(); }
+        function openCheckout() { if (!cart.length) { alert('Your cart is empty'); return; } document.getElementById('checkoutModal').style.display = 'flex'; toggleCart(); }
         function closeModal() { document.getElementById('checkoutModal').style.display = 'none'; }
         
         async function submitOrder() {
             const name = document.getElementById('customerName').value;
             const phone = document.getElementById('customerPhone').value;
             const method = document.getElementById('paymentMethod').value;
-            if (!name) { alert('Enter your name'); return; }
+            if (!name) { alert('Please enter your name'); return; }
             const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             const items = cart.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity }));
             try {
