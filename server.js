@@ -6,6 +6,9 @@ const fs = require('fs');
 const bcrypt = require('bcrypt');
 const qrcode = require('qrcode');
 const { Pool } = require('pg');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,11 +30,44 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
+
+// Security middleware
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
+
+// Rate limiting for API
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { error: 'Too many requests, please try again later.' }
+});
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    skipSuccessfulRequests: true,
+    message: { error: 'Too many login attempts. Please try again later.' }
+});
+
+app.use('/api/', apiLimiter);
+
 app.use(session({
+        store: new pgSession({
+        pool: pool,
+        tableName: 'session',
+        createTableIfMissing: true
+    }),
     secret: process.env.SESSION_SECRET || 'khezwo-secret',
     resave: false,
     saveUninitialized: true,
-    cookie: { maxAge: 24 * 60 * 60 * 1000 }
+    cookie: { 
+        maxAge: 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict'
+    }
 }));
 
 const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -166,7 +202,7 @@ app.post('/vendor/signup', async (req, res) => {
     }
 });
 
-app.post('/vendor/login', async (req, res) => {
+app.post('/vendor/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
     
     try {
@@ -296,7 +332,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
 
 // ============= VENDOR MENU MANAGEMENT =============
 
-app.post('/api/vendor/add-menu-item', upload.single('photo'), async (req, res) => {
+app.post('/api/vendor/add-menu-item', uploadWithValidation.single('photo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { name, price, description, ingredients } = req.body;
@@ -332,7 +368,7 @@ app.post('/api/vendor/toggle-availability', async (req, res) => {
 
 // ============= VENDOR PROFILE =============
 
-app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) => {
+app.post('/api/vendor/update-profile', uploadWithValidation.single('logo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { business_name, owner_name, phone, address, is_open, closed_message } = req.body;
@@ -370,7 +406,7 @@ app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) =
     }
 });
 
-app.post('/api/vendor/upload-background', upload.single('background'), async (req, res) => {
+app.post('/api/vendor/upload-background', uploadWithValidation.single('background'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     if (!req.file) {
@@ -546,7 +582,7 @@ app.get('/api/vendor/order-history', async (req, res) => {
 
 // ============= ADMIN ROUTES =============
 
-app.post('/admin/login', async (req, res) => {
+app.post('/admin/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     
     try {
@@ -757,4 +793,21 @@ app.listen(PORT, () => {
     console.log(`📍 http://localhost:${PORT}`);
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
     console.log(`🎉 Ready to go!\n`);
+});// File upload validation
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Invalid file type. Only images are allowed.'), false);
+    }
+};
+
+const uploadWithValidation = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: fileFilter
 });
+
+// Replace the existing upload with validated version
+// Update the routes to use uploadWithValidation instead of upload
