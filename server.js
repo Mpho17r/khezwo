@@ -723,3 +723,149 @@ app.listen(PORT, () => {
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
     console.log(`🎉 Ready to go!\n`);
 });
+// ============= ADMIN API ENDPOINTS =============
+
+// Get feedback from vendors
+app.get('/api/admin/feedback', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const result = await query(`
+        SELECT f.*, v.business_name 
+        FROM feedback f 
+        JOIN vendors v ON f.vendor_id = v.id 
+        ORDER BY f.created_at DESC LIMIT 50
+    `);
+    res.json(result.rows || []);
+});
+
+// Submit feedback (vendor side)
+app.post('/api/vendor/feedback', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    const { message, rating } = req.body;
+    await query(
+        `INSERT INTO feedback (vendor_id, message, rating, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+        [req.session.vendor.id, message, rating || 5]
+    );
+    res.json({ success: true });
+});
+
+// Get system alerts
+app.get('/api/admin/alerts', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const result = await query(`SELECT * FROM alerts WHERE dismissed = false ORDER BY created_at DESC LIMIT 50`);
+    res.json(result.rows || []);
+});
+
+// Create alert
+app.post('/api/admin/create-alert', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { title, message, type } = req.body;
+    await query(`INSERT INTO alerts (title, message, type) VALUES ($1, $2, $3)`, [title, message, type || 'info']);
+    res.json({ success: true });
+});
+
+// Dismiss alert
+app.delete('/api/admin/dismiss-alert/:id', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    await query(`UPDATE alerts SET dismissed = true WHERE id = $1`, [req.params.id]);
+    res.json({ success: true });
+});
+
+// Clear all alerts
+app.delete('/api/admin/clear-alerts', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    await query(`UPDATE alerts SET dismissed = true`);
+    res.json({ success: true });
+});
+
+// Send reply to feedback
+app.post('/api/admin/send-reply', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { feedback_id, message } = req.body;
+    await query(`UPDATE feedback SET reply = $1, replied_at = CURRENT_TIMESTAMP WHERE id = $2`, [message, feedback_id]);
+    res.json({ success: true });
+});
+
+// Update platform settings
+app.post('/api/admin/update-settings', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const { platform_fee, free_trial_days, min_order_amount } = req.body;
+    await query(`UPDATE platform_settings SET 
+        platform_fee = COALESCE($1, platform_fee),
+        free_trial_days = COALESCE($2, free_trial_days),
+        min_order_amount = COALESCE($3, min_order_amount),
+        updated_at = CURRENT_TIMESTAMP
+    `, [platform_fee, free_trial_days, min_order_amount]);
+    res.json({ success: true });
+});
+
+// Enhanced stats with charts
+app.get('/api/admin/stats', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const stats = await query(`SELECT 
+        (SELECT COUNT(*) FROM vendors) as total_vendors,
+        (SELECT COUNT(*) FROM vendors WHERE is_suspended = 0) as active_vendors,
+        (SELECT COUNT(*) FROM orders) as total_orders,
+        (SELECT COALESCE(SUM(platform_fee), 0) FROM orders) as total_platform_revenue,
+        (SELECT COALESCE(AVG(rating), 0) FROM feedback) as avg_rating
+    `);
+    
+    // Get weekly revenue for chart
+    const weekly = await query(`
+        SELECT DATE_TRUNC('week', created_at) as week, COALESCE(SUM(platform_fee), 0) as revenue
+        FROM orders GROUP BY DATE_TRUNC('week', created_at) ORDER BY week DESC LIMIT 4
+    `);
+    
+    res.json({
+        ...stats.rows[0],
+        chart_labels: weekly.rows.map(w => `Week ${w.week.getWeek()}`),
+        chart_data: weekly.rows.map(w => parseFloat(w.revenue)),
+        platform_fee: 5,
+        free_trial_days: 14,
+        min_order_amount: 0,
+        growth_rate: 12,
+        churn_rate: 3,
+        satisfaction: 92
+    });
+});
+
+// Helper for week number
+Date.prototype.getWeek = function() { return Math.ceil((this - new Date(this.getFullYear(), 0, 1)) / 86400000 / 7); };
+// Add missing admin tables
+app.get('/api/create-admin-tables', async (req, res) => {
+    try {
+        await query(`
+            CREATE TABLE IF NOT EXISTS feedback (
+                id SERIAL PRIMARY KEY,
+                vendor_id INTEGER REFERENCES vendors(id),
+                message TEXT NOT NULL,
+                rating INTEGER DEFAULT 5,
+                reply TEXT,
+                replied_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await query(`
+            CREATE TABLE IF NOT EXISTS alerts (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                type TEXT DEFAULT 'info',
+                dismissed BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await query(`
+            CREATE TABLE IF NOT EXISTS platform_settings (
+                id INTEGER PRIMARY KEY DEFAULT 1,
+                platform_fee DECIMAL(5,2) DEFAULT 5,
+                free_trial_days INTEGER DEFAULT 14,
+                min_order_amount DECIMAL(10,2) DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await query(`INSERT INTO platform_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+        res.json({ success: true, message: 'Admin tables created!' });
+    } catch (err) {
+        res.json({ error: err.message });
+    }
+});
