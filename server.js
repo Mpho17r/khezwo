@@ -112,7 +112,6 @@ app.get('/api/vendor/data', async (req, res) => {
     try {
         const vendorResult = await query(`SELECT * FROM vendors WHERE id = $1`, [vendorId]);
         const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 ORDER BY id DESC`, [vendorId]);
-        // Only show pending orders in Live Orders tab
         const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 AND status = 'pending' ORDER BY created_at DESC`, [vendorId]);
         
         res.json({
@@ -122,6 +121,62 @@ app.get('/api/vendor/data', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// ============= QR CODE ENDPOINTS (FIXED) =============
+
+app.get('/api/vendor/qr-code', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorId = req.session.vendor.id;
+    const baseUrl = getBaseUrl();
+    const qrUrl = `${baseUrl}/menu/${vendorId}`;
+    
+    try {
+        // Generate QR code as data URL with better settings
+        const qrBase64 = await qrcode.toDataURL(qrUrl, {
+            errorCorrectionLevel: 'H',
+            margin: 2,
+            width: 300,
+            color: {
+                dark: '#000000',
+                light: '#ffffff'
+            }
+        });
+        res.json({ success: true, qrBase64: qrBase64 });
+    } catch (err) {
+        console.error('QR generation error:', err);
+        res.status(500).json({ error: 'Failed to generate QR code' });
+    }
+});
+
+app.get('/api/vendor/regenerate-qr', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    
+    const vendorId = req.session.vendor.id;
+    const baseUrl = getBaseUrl();
+    const qrUrl = `${baseUrl}/menu/${vendorId}`;
+    
+    try {
+        // Generate and save to file
+        await qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, {
+            errorCorrectionLevel: 'H',
+            margin: 2,
+            width: 300
+        });
+        
+        // Also return as base64 for immediate display
+        const qrBase64 = await qrcode.toDataURL(qrUrl, {
+            errorCorrectionLevel: 'H',
+            margin: 2,
+            width: 300
+        });
+        
+        res.json({ success: true, qrBase64: qrBase64 });
+    } catch (err) {
+        console.error('QR regeneration error:', err);
+        res.status(500).json({ error: 'Failed to regenerate QR code' });
     }
 });
 
