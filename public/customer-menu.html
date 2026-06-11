@@ -78,9 +78,10 @@
             background: #667eea;
             color: white;
             border: none;
-            padding: 8px 20px;
+            padding: 10px 20px;
             border-radius: 30px;
             font-weight: 600;
+            font-size: 14px;
             cursor: pointer;
             width: 100%;
         }
@@ -180,6 +181,21 @@
             border: 2px solid #e0e0e0;
             border-radius: 25px;
         }
+        .modal-content button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .modal-content button:last-of-type {
+            background: #ccc;
+            color: #333;
+        }
         
         .watermark { text-align: center; padding: 20px; font-size: 11px; color: #bbb; }
         .loading { text-align: center; padding: 50px; color: #999; }
@@ -244,8 +260,8 @@
                         <input type="text" id="customerName" placeholder="Your name">
                         <input type="tel" id="customerPhone" placeholder="Phone number">
                         <select id="paymentMethod"><option value="cash">Cash</option><option value="card">Card (coming soon)</option></select>
-                        <button onclick="submitOrder()" style="margin-top:15px;">Place Order</button>
-                        <button onclick="closeModal()" style="margin-top:10px; background:#ccc;">Cancel</button>
+                        <button onclick="submitOrder()">Place Order</button>
+                        <button onclick="closeModal()">Cancel</button>
                     </div>
                 </div>
             `;
