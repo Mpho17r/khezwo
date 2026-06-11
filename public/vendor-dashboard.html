@@ -24,7 +24,7 @@
         }
         
         .sidebar-header { padding: 30px 25px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
-        .sidebar-header .logo { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+        .sidebar-header .logo { font-size: 24px; font-weight: 800; }
         .sidebar-header .logo span { color: #667eea; }
         .sidebar-header .business-name { font-size: 14px; opacity: 0.7; margin-top: 10px; }
         
@@ -140,7 +140,10 @@
 <body>
     <div class="sidebar">
         <div class="sidebar-header">
-            <div class="logo">KheZwo<span>.</span></div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="/images/logo.jpg.jpeg" alt="KheZwo" style="width: 40px; height: 40px; border-radius: 10px; object-fit: cover;" onerror="this.style.display='none'">
+                <div class="logo">KheZwo<span>.</span></div>
+            </div>
             <div class="business-name" id="businessName">Loading...</div>
         </div>
         <div class="nav-item active" data-tab="orders"><i class="fas fa-shopping-bag"></i><span>Live Orders</span></div>
@@ -446,3 +449,4 @@
     </script>
 </body>
 </html>
+EOF
