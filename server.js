@@ -869,3 +869,108 @@ app.get('/api/create-admin-tables', async (req, res) => {
         res.json({ error: err.message });
     }
 });
+// ============= ADVANCED ADMIN API =============
+
+// Enhanced stats for dashboard
+app.get('/api/admin/stats', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const totalVendors = await query(`SELECT COUNT(*) FROM vendors`);
+    const activeVendors = await query(`SELECT COUNT(*) FROM vendors WHERE is_suspended = 0`);
+    const ordersToday = await query(`SELECT COUNT(*) FROM orders WHERE created_at >= $1`, [today]);
+    const revenueToday = await query(`SELECT COALESCE(SUM(platform_fee), 0) FROM orders WHERE created_at >= $1`, [today]);
+    const newVendorsWeek = await query(`SELECT COUNT(*) FROM vendors WHERE created_at >= NOW() - INTERVAL '7 days'`);
+    const vendorGrowth = await query(`SELECT COUNT(*) FROM vendors WHERE created_at >= NOW() - INTERVAL '30 days'`);
+    
+    // Revenue chart data (last 30 days)
+    const revenueData = await query(`
+        SELECT DATE(created_at) as date, COALESCE(SUM(platform_fee), 0) as revenue
+        FROM orders WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY DATE(created_at) ORDER BY date ASC
+    `);
+    
+    // Orders chart data
+    const orderData = await query(`
+        SELECT DATE(created_at) as date, COUNT(*) as orders
+        FROM orders WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY DATE(created_at) ORDER BY date ASC
+    `);
+    
+    // Vendor health
+    const vendorHealth = await query(`
+        SELECT v.id, v.business_name, 
+            (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id AND DATE(created_at) = CURRENT_DATE) as orders_today,
+            (SELECT COALESCE(SUM(total), 0) FROM orders WHERE vendor_id = v.id AND DATE(created_at) = CURRENT_DATE) as revenue_today,
+            COALESCE((SELECT created_at FROM audit_logs WHERE vendor_id = v.id AND action = 'login' ORDER BY created_at DESC LIMIT 1), v.created_at) as last_login,
+            CASE WHEN v.is_suspended = 1 THEN 'inactive' ELSE 'active' END as status
+        FROM vendors v LIMIT 10
+    `);
+    
+    // Recent activity
+    const activities = await query(`
+        SELECT action, details, created_at, 'login' as type FROM audit_logs ORDER BY created_at DESC LIMIT 10
+    `);
+    
+    res.json({
+        total_vendors: parseInt(totalVendors.rows[0].count),
+        active_vendors: parseInt(activeVendors.rows[0].count),
+        orders_today: parseInt(ordersToday.rows[0].count),
+        revenue_today: parseFloat(revenueToday.rows[0].coalesce),
+        new_vendors_week: parseInt(newVendorsWeek.rows[0].count),
+        vendor_growth: Math.round((parseInt(newVendorsWeek.rows[0].count) / 30) * 100),
+        chart_labels: revenueData.rows.map(r => new Date(r.date).toLocaleDateString()),
+        revenue_data: revenueData.rows.map(r => parseFloat(r.revenue)),
+        order_labels: orderData.rows.map(r => new Date(r.date).toLocaleDateString()),
+        order_data: orderData.rows.map(r => parseInt(r.orders)),
+        vendor_health: vendorHealth.rows,
+        activities: activities.rows.map(a => ({ text: a.action, time: new Date(a.created_at).toLocaleTimeString(), icon: 'fa-user', color: '#667eea' }))
+    });
+});
+
+// Analytics endpoint
+app.get('/api/admin/analytics', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const topVendors = await query(`
+        SELECT v.business_name, COUNT(o.id) as orders FROM vendors v 
+        LEFT JOIN orders o ON v.id = o.vendor_id GROUP BY v.id ORDER BY orders DESC LIMIT 5
+    `);
+    
+    const topProducts = await query(`
+        SELECT value->>'name' as name, COUNT(*) as sales FROM orders o, jsonb_array_elements(o.items_json) as value 
+        GROUP BY value->>'name' ORDER BY sales DESC LIMIT 5
+    `);
+    
+    const peakHours = await query(`
+        SELECT EXTRACT(HOUR FROM created_at) as hour, COUNT(*) as orders 
+        FROM orders GROUP BY hour ORDER BY orders DESC LIMIT 3
+    `);
+    
+    res.json({
+        top_vendors: topVendors.rows,
+        top_products: topProducts.rows,
+        peak_hours: peakHours.rows.map(r => ({ hour: r.hour, orders: parseInt(r.orders) }))
+    });
+});
+
+// Audit logs
+app.get('/api/admin/audit-logs', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const logs = await query(`SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100`);
+    res.json(logs.rows);
+});
+
+// Subscriptions
+app.get('/api/admin/subscriptions', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const subs = await query(`SELECT id, business_name, subscription_tier, created_at FROM vendors`);
+    res.json(subs.rows);
+});
+
+// Vendor detail
+app.get('/api/admin/vendor/:id', async (req, res) => {
+    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
+    const vendor = await query(`SELECT v.*, (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders, (SELECT COALESCE(SUM(total), 0) FROM orders WHERE vendor_id = v.id) as total_revenue FROM vendors v WHERE v.id = $1`, [req.params.id]);
+    res.json(vendor.rows[0]);
+});
