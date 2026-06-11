@@ -10,13 +10,11 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// PostgreSQL connection
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-// Ensure uploads folder exists
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 
 const storage = multer.diskStorage({
@@ -114,7 +112,8 @@ app.get('/api/vendor/data', async (req, res) => {
     try {
         const vendorResult = await query(`SELECT * FROM vendors WHERE id = $1`, [vendorId]);
         const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 ORDER BY id DESC`, [vendorId]);
-        const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 AND status != 'completed' ORDER BY created_at DESC`, [vendorId]);
+        // Show ALL orders, not just pending
+        const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 ORDER BY created_at DESC LIMIT 50`, [vendorId]);
         
         res.json({
             vendor: vendorResult.rows[0],
@@ -170,8 +169,6 @@ app.post('/api/place-order', async (req, res) => {
         const random = Math.floor(Math.random() * 1000);
         const orderNumber = `${vendor_id}-${timestamp}-${random}`;
         
-        console.log(`📦 Creating order: ${orderNumber} for vendor ${vendor_id}`);
-        
         const result = await query(
             `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', CURRENT_TIMESTAMP)
@@ -179,11 +176,7 @@ app.post('/api/place-order', async (req, res) => {
             [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
         );
         
-        res.json({ 
-            success: true, 
-            order_number: result.rows[0].order_number
-        });
-        
+        res.json({ success: true, order_number: result.rows[0].order_number });
     } catch (err) {
         console.error('Place order error:', err);
         res.status(500).json({ error: err.message });
@@ -306,10 +299,8 @@ app.post('/api/vendor/update-order-status', async (req, res) => {
             `UPDATE orders SET status = $1 WHERE id = $2 AND vendor_id = $3`,
             [status, order_id, req.session.vendor.id]
         );
-        console.log(`✅ Order ${order_id} marked as ${status}`);
         res.json({ success: true });
     } catch (err) {
-        console.error('Update order error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -348,7 +339,7 @@ app.get('/api/vendor/order-history', async (req, res) => {
     }
 });
 
-// ============= VENDOR ANALYTICS (FIXED) =============
+// ============= VENDOR ANALYTICS =============
 
 app.get('/api/vendor/analytics', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
@@ -356,7 +347,6 @@ app.get('/api/vendor/analytics', async (req, res) => {
     const vendorId = req.session.vendor.id;
     const { period } = req.query;
     
-    // Calculate date range based on period
     let startDate;
     const now = new Date();
     
@@ -376,11 +366,9 @@ app.get('/api/vendor/analytics', async (req, res) => {
     }
     
     try {
-        // Get all completed orders for this vendor within date range
         const ordersResult = await query(`
             SELECT * FROM orders 
             WHERE vendor_id = $1 
-            AND status = 'completed'
             AND created_at >= $2
             ORDER BY created_at ASC
         `, [vendorId, startDate]);
@@ -398,7 +386,6 @@ app.get('/api/vendor/analytics', async (req, res) => {
             });
         }
         
-        // Calculate totals
         let totalSales = 0;
         let totalItemsSold = 0;
         const itemCounts = {};
@@ -428,13 +415,11 @@ app.get('/api/vendor/analytics', async (req, res) => {
             }
         }
         
-        // Get top 5 items
         const topItems = Object.entries(itemCounts)
             .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 5);
         
-        // Daily sales for chart (group by date)
         const dailyMap = {};
         for (const order of orders) {
             const dateKey = new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -468,7 +453,7 @@ app.get('/api/vendor/analytics', async (req, res) => {
     }
 });
 
-// ============= ADMIN AUTH =============
+// ============= ADMIN ROUTES =============
 
 app.post('/admin/login', async (req, res) => {
     const { username, password } = req.body;
@@ -493,37 +478,6 @@ app.post('/admin/login', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-app.post('/api/setup-admin', async (req, res) => {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password required' });
-    }
-    
-    if (password.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
-    
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        await query(`DELETE FROM admin_users`);
-        
-        await query(
-            `INSERT INTO admin_users (username, password, role) VALUES ($1, $2, 'super_admin')`,
-            [username, hashedPassword]
-        );
-        
-        console.log('Admin account created/updated');
-        res.json({ success: true, message: 'Admin account created' });
-    } catch (err) {
-        console.error('Setup error:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ============= ADMIN ROUTES =============
 
 app.get('/api/admin/vendors', async (req, res) => {
     if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
@@ -587,54 +541,6 @@ app.get('/api/admin/stats', async (req, res) => {
     }
 });
 
-// ============= AD MANAGEMENT ROUTES =============
-
-app.get('/api/admin/sponsor-ads', async (req, res) => {
-    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
-    
-    const result = await query(`SELECT * FROM sponsor_ads ORDER BY id DESC`);
-    res.json(result.rows || []);
-});
-
-app.post('/api/admin/add-sponsor', async (req, res) => {
-    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
-    const { name, link } = req.body;
-    
-    await query(`INSERT INTO sponsor_ads (name, link) VALUES ($1, $2)`, [name, link]);
-    res.json({ success: true });
-});
-
-app.delete('/api/admin/delete-sponsor/:id', async (req, res) => {
-    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
-    const { id } = req.params;
-    
-    await query(`DELETE FROM sponsor_ads WHERE id = $1`, [id]);
-    res.json({ success: true });
-});
-
-app.get('/api/admin/ad-settings', async (req, res) => {
-    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
-    
-    const result = await query(`SELECT * FROM ad_settings LIMIT 1`);
-    res.json(result.rows[0] || {});
-});
-
-app.post('/api/admin/ad-settings', async (req, res) => {
-    if (!req.session.admin) return res.status(401).json({ error: 'Unauthorized' });
-    const { adsense_client, top_slot, middle_slot } = req.body;
-    
-    await query(`
-        INSERT INTO ad_settings (id, adsense_client, top_slot, middle_slot, updated_at) 
-        VALUES (1, $1, $2, $3, CURRENT_TIMESTAMP)
-        ON CONFLICT (id) DO UPDATE SET 
-            adsense_client = EXCLUDED.adsense_client,
-            top_slot = EXCLUDED.top_slot,
-            middle_slot = EXCLUDED.middle_slot,
-            updated_at = CURRENT_TIMESTAMP
-    `, [adsense_client, top_slot, middle_slot]);
-    res.json({ success: true });
-});
-
 // ============= CUSTOMER ROUTES =============
 
 app.get('/menu/:vendorId', (req, res) => {
@@ -670,7 +576,7 @@ app.get('/api/menu/:vendorId', async (req, res) => {
     }
 });
 
-// ============= FIX ORDER NUMBERS ENDPOINT =============
+// ============= FIX ENDPOINTS =============
 
 app.get('/api/fix-order-numbers', async (req, res) => {
     try {
@@ -692,35 +598,21 @@ app.get('/api/fix-order-numbers', async (req, res) => {
             details += `Vendor ${vendor.id}: ${orders.rows.length} orders updated\n`;
         }
         
-        res.json({ 
-            success: true, 
-            message: `All order numbers reset to sequential format per vendor! ${totalUpdated} orders updated.`,
-            details: details
-        });
+        res.json({ success: true, message: `${totalUpdated} orders updated`, details: details });
     } catch (err) {
-        console.error('Fix orders error:', err);
         res.json({ success: false, error: err.message });
     }
 });
 
-// ============= FIX DATABASE CONSTRAINTS =============
-
 app.get('/api/fix-database', async (req, res) => {
     try {
         await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key`);
-        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key1`);
-        await query(`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_number_key2`);
         await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS background_image TEXT`);
-        
-        console.log('Database constraint removed');
-        res.json({ success: true, message: 'Database fixed! You can now place orders.' });
+        res.json({ success: true, message: 'Database fixed!' });
     } catch (err) {
-        console.error('Fix error:', err.message);
         res.json({ error: err.message });
     }
 });
-
-// ============= DEBUG ENDPOINTS =============
 
 app.get('/api/debug-orders', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
@@ -728,25 +620,9 @@ app.get('/api/debug-orders', async (req, res) => {
     res.json(orders.rows);
 });
 
-app.get('/api/check-orders/:vendorId', async (req, res) => {
-    const vendorId = req.params.vendorId;
-    try {
-        const orders = await query(
-            'SELECT id, order_number, created_at FROM orders WHERE vendor_id = $1 ORDER BY created_at DESC LIMIT 10',
-            [vendorId]
-        );
-        res.json(orders.rows);
-    } catch (err) {
-        res.json({ error: err.message });
-    }
-});
-
-// ============= START SERVER =============
-
 app.listen(PORT, () => {
     console.log(`\n✅ KheZwo is running!`);
     console.log(`📍 http://localhost:${PORT}`);
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
-    console.log(`\n📋 Admin: Use your custom credentials`);
     console.log(`🎉 Ready to go!\n`);
 });
