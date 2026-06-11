@@ -112,8 +112,8 @@ app.get('/api/vendor/data', async (req, res) => {
     try {
         const vendorResult = await query(`SELECT * FROM vendors WHERE id = $1`, [vendorId]);
         const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 ORDER BY id DESC`, [vendorId]);
-        // Show ALL orders, not just pending
-        const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 ORDER BY created_at DESC LIMIT 50`, [vendorId]);
+        // Only show pending orders in Live Orders tab
+        const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 AND status = 'pending' ORDER BY created_at DESC`, [vendorId]);
         
         res.json({
             vendor: vendorResult.rows[0],
@@ -123,36 +123,6 @@ app.get('/api/vendor/data', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-});
-
-app.get('/api/vendor/qr-code', async (req, res) => {
-    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
-    
-    const vendorId = req.session.vendor.id;
-    const baseUrl = getBaseUrl();
-    const qrUrl = `${baseUrl}/menu/${vendorId}`;
-    
-    try {
-        const qrBase64 = await qrcode.toDataURL(qrUrl);
-        res.json({ success: true, qrBase64: qrBase64 });
-    } catch (err) {
-        res.status(500).json({ error: 'Failed to generate QR code' });
-    }
-});
-
-app.get('/api/vendor/regenerate-qr', async (req, res) => {
-    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
-    
-    const vendorId = req.session.vendor.id;
-    const baseUrl = getBaseUrl();
-    const qrUrl = `${baseUrl}/menu/${vendorId}`;
-    
-    qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, (err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to generate QR code' });
-        }
-        res.json({ success: true });
-    });
 });
 
 // ============= PLACE ORDER =============
