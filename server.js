@@ -37,8 +37,71 @@ app.use(session({
 const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${PORT}`;
 const query = (text, params) => pool.query(text, params);
 
+// ============= HOME PAGE =============
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ============= CUSTOMER MENU PAGE (MUST BE BEFORE OTHER ROUTES) =============
+app.get('/menu/:vendorId', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'customer-menu.html'));
+});
+
+// ============= API ROUTES =============
+
+app.get('/api/menu/:vendorId', async (req, res) => {
+    const vendorId = req.params.vendorId;
+    
+    try {
+        const vendorResult = await query(`SELECT * FROM vendors WHERE id = $1`, [vendorId]);
+        
+        if (vendorResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Vendor not found' });
+        }
+        
+        const vendor = vendorResult.rows[0];
+        const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 AND is_available = 1 ORDER BY id DESC`, [vendorId]);
+        
+        res.json({
+            vendor: {
+                id: vendor.id,
+                business_name: vendor.business_name,
+                logo_url: vendor.logo_url,
+                background_image: vendor.background_image,
+                is_open: vendor.is_open,
+                closed_message: vendor.closed_message
+            },
+            menu_items: itemsResult.rows || []
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/place-order', async (req, res) => {
+    const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
+    
+    if (!vendor_id || !items || !total) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    try {
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 1000);
+        const orderNumber = `${vendor_id}-${timestamp}-${random}`;
+        
+        const result = await query(
+            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', CURRENT_TIMESTAMP)
+             RETURNING order_number`,
+            [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
+        );
+        
+        res.json({ success: true, order_number: result.rows[0].order_number });
+    } catch (err) {
+        console.error('Place order error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ============= VENDOR AUTH =============
@@ -61,8 +124,7 @@ app.post('/vendor/signup', async (req, res) => {
         
         const vendorId = result.rows[0].id;
         const baseUrl = getBaseUrl();
-        // FIXED: QR code points to customer menu page
-        const qrUrl = `${getBaseUrl()}/menu/${vendorId}`;
+        const qrUrl = `${baseUrl}/menu/${vendorId}`;
         qrcode.toFile(`./uploads/qr_${vendorId}.png`, qrUrl, () => {});
         
         res.json({ success: true, vendor_id: vendorId });
@@ -103,7 +165,7 @@ app.get('/vendor/logout', (req, res) => {
     res.redirect('/');
 });
 
-// ============= VENDOR DATA =============
+// ============= VENDOR DASHBOARD DATA =============
 
 app.get('/api/vendor/data', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
@@ -132,8 +194,7 @@ app.get('/api/vendor/qr-code', async (req, res) => {
     
     const vendorId = req.session.vendor.id;
     const baseUrl = getBaseUrl();
-    // FIXED: QR code points to customer menu page
-    const qrUrl = `${getBaseUrl()}/menu/${vendorId}`;
+    const qrUrl = `${baseUrl}/menu/${vendorId}`;
     
     try {
         const qrBase64 = await qrcode.toDataURL(qrUrl, {
@@ -153,8 +214,7 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     
     const vendorId = req.session.vendor.id;
     const baseUrl = getBaseUrl();
-    // FIXED: QR code points to customer menu page
-    const qrUrl = `${getBaseUrl()}/menu/${vendorId}`;
+    const qrUrl = `${baseUrl}/menu/${vendorId}`;
     
     console.log(`Regenerating QR code for vendor ${vendorId} -> ${qrUrl}`);
     
@@ -175,34 +235,6 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
     } catch (err) {
         console.error('QR regeneration error:', err);
         res.status(500).json({ error: 'Failed to regenerate QR code' });
-    }
-});
-
-// ============= PLACE ORDER =============
-
-app.post('/api/place-order', async (req, res) => {
-    const { vendor_id, customer_name, customer_phone, items, total, payment_method } = req.body;
-    
-    if (!vendor_id || !items || !total) {
-        return res.status(400).json({ error: 'Missing required fields' });
-    }
-    
-    try {
-        const timestamp = Date.now();
-        const random = Math.floor(Math.random() * 1000);
-        const orderNumber = `${vendor_id}-${timestamp}-${random}`;
-        
-        const result = await query(
-            `INSERT INTO orders (vendor_id, order_number, customer_name, customer_phone, items_json, total, payment_method, status, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', CURRENT_TIMESTAMP)
-             RETURNING order_number`,
-            [vendor_id, orderNumber, customer_name || 'Anonymous', customer_phone || '', JSON.stringify(items), total, payment_method]
-        );
-        
-        res.json({ success: true, order_number: result.rows[0].order_number });
-    } catch (err) {
-        console.error('Place order error:', err);
-        res.status(500).json({ error: err.message });
     }
 });
 
@@ -564,41 +596,6 @@ app.get('/api/admin/stats', async (req, res) => {
     }
 });
 
-// ============= CUSTOMER ROUTES =============
-
-app.get('/menu/:vendorId', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'customer-menu.html'));
-});
-
-app.get('/api/menu/:vendorId', async (req, res) => {
-    const vendorId = req.params.vendorId;
-    
-    try {
-        const vendorResult = await query(`SELECT * FROM vendors WHERE id = $1`, [vendorId]);
-        
-        if (vendorResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Vendor not found' });
-        }
-        
-        const vendor = vendorResult.rows[0];
-        const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 AND is_available = 1 ORDER BY id DESC`, [vendorId]);
-        
-        res.json({
-            vendor: {
-                id: vendor.id,
-                business_name: vendor.business_name,
-                logo_url: vendor.logo_url,
-                background_image: vendor.background_image,
-                is_open: vendor.is_open,
-                closed_message: vendor.closed_message
-            },
-            menu_items: itemsResult.rows || []
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // ============= FIX ENDPOINTS =============
 
 app.get('/api/fix-order-numbers', async (req, res) => {
@@ -642,6 +639,27 @@ app.get('/api/debug-orders', async (req, res) => {
     const orders = await query('SELECT id, order_number, status, created_at FROM orders WHERE vendor_id = $1', [req.session.vendor.id]);
     res.json(orders.rows);
 });
+
+app.get('/api/debug-qr-url', async (req, res) => {
+    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
+    const vendorId = req.session.vendor.id;
+    const baseUrl = getBaseUrl();
+    res.json({ 
+        vendor_id: vendorId, 
+        qr_url: `${baseUrl}/menu/${vendorId}`,
+        base_url: baseUrl
+    });
+});
+
+// ============= VENDOR DASHBOARD PAGE =============
+app.get('/vendor-dashboard.html', (req, res) => {
+    if (!req.session.vendor) {
+        return res.redirect('/vendor-login.html');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'vendor-dashboard.html'));
+});
+
+// ============= START SERVER =============
 
 app.listen(PORT, () => {
     console.log(`\n✅ KheZwo is running!`);
