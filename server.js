@@ -18,18 +18,43 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
+// Create session table if not exists
+(async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS "session" (
+                "sid" varchar NOT NULL COLLATE "default" PRIMARY KEY,
+                "sess" json NOT NULL,
+                "expire" timestamp(6) NOT NULL
+            )
+        `);
+        console.log('✅ Session table ready');
+    } catch (err) {
+        console.log('Session table may already exist');
+    }
+})();
+
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+
+// File validation
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Invalid file type. Only images are allowed.'), false);
+    }
+};
 
 const storage = multer.diskStorage({
     destination: './uploads/',
     filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
-const upload = multer({ storage });
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: fileFilter
+});
 
 // Security middleware
 app.use(helmet({
@@ -37,7 +62,12 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 
-// Rate limiting for API
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+app.use('/uploads', express.static('uploads'));
+
+// Rate limiting
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -53,20 +83,21 @@ const loginLimiter = rateLimit({
 
 app.use('/api/', apiLimiter);
 
+// Session with PostgreSQL store
 app.use(session({
-        store: new pgSession({
+    store: new pgSession({
         pool: pool,
         tableName: 'session',
         createTableIfMissing: true
     }),
     secret: process.env.SESSION_SECRET || 'khezwo-secret',
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie: { 
         maxAge: 24 * 60 * 60 * 1000,
         httpOnly: true,
-        secure: true,
-        sameSite: 'strict'
+        secure: false, // Set to true if using HTTPS only (Render uses HTTPS)
+        sameSite: 'lax'
     }
 }));
 
@@ -188,11 +219,6 @@ app.post('/vendor/signup', async (req, res) => {
             await query(`UPDATE vendors SET is_headquarters = true WHERE id = $1`, [vendorId]);
         }
         
-        await query(
-            `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'signup', $2)`,
-            [vendorId, JSON.stringify({ business_type, business_size, subscription_tier })]
-        );
-        
         res.json({ success: true, vendor_id: vendorId });
     } catch (err) {
         if (err.constraint === 'vendors_email_key') {
@@ -216,19 +242,10 @@ app.post('/vendor/login', loginLimiter, async (req, res) => {
         const valid = await bcrypt.compare(password, vendor.password);
         
         if (!valid) {
-            await query(
-                `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'failed_login', $2)`,
-                [vendor.id, JSON.stringify({ ip: req.ip })]
-            );
             return res.status(400).json({ error: 'Invalid credentials' });
         }
         
         req.session.vendor = vendor;
-        
-        await query(
-            `INSERT INTO audit_logs (vendor_id, action, details) VALUES ($1, 'login', $2)`,
-            [vendor.id, JSON.stringify({ ip: req.ip })]
-        );
         
         res.json({ success: true, redirect: '/vendor-dashboard.html' });
     } catch (err) {
@@ -237,9 +254,6 @@ app.post('/vendor/login', loginLimiter, async (req, res) => {
 });
 
 app.get('/vendor/logout', (req, res) => {
-    if (req.session.vendor) {
-        query(`INSERT INTO audit_logs (vendor_id, action) VALUES ($1, 'logout')`, [req.session.vendor.id]);
-    }
     req.session.destroy();
     res.redirect('/');
 });
@@ -256,27 +270,12 @@ app.get('/api/vendor/data', async (req, res) => {
         const itemsResult = await query(`SELECT * FROM menu_items WHERE vendor_id = $1 ORDER BY id DESC`, [vendorId]);
         const ordersResult = await query(`SELECT * FROM orders WHERE vendor_id = $1 AND status IN ('received', 'preparing', 'ready') ORDER BY created_at DESC`, [vendorId]);
         
-        let branches = [];
-        if (vendorResult.rows[0].is_headquarters) {
-            const branchesResult = await query(`
-                SELECT v.*, 
-                    (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders,
-                    (SELECT COALESCE(SUM(total), 0) FROM orders WHERE vendor_id = v.id) as total_sales,
-                    (SELECT COUNT(*) FROM menu_items WHERE vendor_id = v.id) as menu_items
-                FROM vendors v 
-                WHERE v.parent_id = $1
-            `, [vendorId]);
-            branches = branchesResult.rows;
-        }
-        
         res.json({
             vendor: vendorResult.rows[0],
             menu_items: itemsResult.rows || [],
-            orders: ordersResult.rows || [],
-            branches: branches
+            orders: ordersResult.rows || []
         });
     } catch (err) {
-        console.error('Vendor data error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -298,7 +297,6 @@ app.get('/api/vendor/qr-code', async (req, res) => {
         });
         res.json({ success: true, qrBase64: qrBase64 });
     } catch (err) {
-        console.error('QR generation error:', err);
         res.status(500).json({ error: 'Failed to generate QR code' });
     }
 });
@@ -325,14 +323,13 @@ app.get('/api/vendor/regenerate-qr', async (req, res) => {
         
         res.json({ success: true, qrBase64: qrBase64 });
     } catch (err) {
-        console.error('QR regeneration error:', err);
         res.status(500).json({ error: 'Failed to regenerate QR code' });
     }
 });
 
 // ============= VENDOR MENU MANAGEMENT =============
 
-app.post('/api/vendor/add-menu-item', uploadWithValidation.single('photo'), async (req, res) => {
+app.post('/api/vendor/add-menu-item', upload.single('photo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { name, price, description, ingredients } = req.body;
@@ -368,7 +365,7 @@ app.post('/api/vendor/toggle-availability', async (req, res) => {
 
 // ============= VENDOR PROFILE =============
 
-app.post('/api/vendor/update-profile', uploadWithValidation.single('logo'), async (req, res) => {
+app.post('/api/vendor/update-profile', upload.single('logo'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     const { business_name, owner_name, phone, address, is_open, closed_message } = req.body;
@@ -401,12 +398,11 @@ app.post('/api/vendor/update-profile', uploadWithValidation.single('logo'), asyn
         
         res.json({ success: true });
     } catch (err) {
-        console.error('Update profile error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/api/vendor/upload-background', uploadWithValidation.single('background'), async (req, res) => {
+app.post('/api/vendor/upload-background', upload.single('background'), async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
     
     if (!req.file) {
@@ -448,7 +444,7 @@ app.post('/api/vendor/remove-background', async (req, res) => {
     }
 });
 
-// ============= ORDER TRACKING AND STATUS UPDATE =============
+// ============= ORDER TRACKING =============
 
 app.post('/api/vendor/update-tracking', async (req, res) => {
     if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
@@ -471,10 +467,8 @@ app.post('/api/vendor/update-tracking', async (req, res) => {
             [order_id, status]
         );
         
-        console.log(`✅ Order ${order_id} status updated to ${status}`);
         res.json({ success: true, status: status });
     } catch (err) {
-        console.error('Update tracking error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -541,7 +535,6 @@ app.get('/api/track-order/:orderNumber', async (req, res) => {
             statuses: statuses
         });
     } catch (err) {
-        console.error('Track order error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -612,10 +605,8 @@ app.get('/api/admin/vendors', async (req, res) => {
     try {
         const result = await query(`
             SELECT v.*, 
-                   (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders,
-                   s.name as subscription_name
+                   (SELECT COUNT(*) FROM orders WHERE vendor_id = v.id) as total_orders
             FROM vendors v
-            LEFT JOIN subscription_plans s ON v.subscription_tier = s.tier
             ORDER BY v.created_at DESC
         `);
         res.json(result.rows || []);
@@ -661,19 +652,15 @@ app.get('/api/admin/stats', async (req, res) => {
         const activeVendors = await query(`SELECT COUNT(*) FROM vendors WHERE is_suspended = 0`);
         const suspendedVendors = await query(`SELECT COUNT(*) FROM vendors WHERE is_suspended = 1`);
         const totalOrders = await query(`SELECT COUNT(*) FROM orders`);
-        const totalRevenue = await query(`SELECT COALESCE(SUM(platform_fee), 0) as total FROM orders`);
-        const vendorsByType = await query(`SELECT business_type, COUNT(*) as count FROM vendors GROUP BY business_type`);
         
         res.json({
             total_vendors: parseInt(totalVendors.rows[0].count),
             active_vendors: parseInt(activeVendors.rows[0].count),
             suspended_vendors: parseInt(suspendedVendors.rows[0].count),
-            total_orders: parseInt(totalOrders.rows[0].count),
-            total_platform_revenue: parseFloat(totalRevenue.rows[0].total),
-            vendors_by_type: vendorsByType.rows
+            total_orders: parseInt(totalOrders.rows[0].count)
         });
     } catch (err) {
-        res.json({ total_vendors: 0, active_vendors: 0, suspended_vendors: 0, total_orders: 0, total_platform_revenue: 0, vendors_by_type: [] });
+        res.json({ total_vendors: 0, active_vendors: 0, suspended_vendors: 0, total_orders: 0 });
     }
 });
 
@@ -716,68 +703,10 @@ app.get('/api/fix-database', async (req, res) => {
         await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS is_headquarters BOOLEAN DEFAULT FALSE`);
         await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT 0`);
         await query(`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS platform_fee_percentage DECIMAL(5,2) DEFAULT 5`);
-        
-        await query(`CREATE TABLE IF NOT EXISTS audit_logs (
-            id SERIAL PRIMARY KEY,
-            vendor_id INTEGER REFERENCES vendors(id),
-            action TEXT NOT NULL,
-            details TEXT,
-            ip_address TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )`);
-        
-        await query(`CREATE TABLE IF NOT EXISTS order_tracking (
-            id SERIAL PRIMARY KEY,
-            order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-            status TEXT DEFAULT 'received',
-            estimated_time INTEGER,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )`);
-        
-        await query(`CREATE TABLE IF NOT EXISTS business_types (
-            id SERIAL PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL,
-            icon TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )`);
-        
-        await query(`INSERT INTO business_types (name, icon) VALUES
-            ('restaurant', '🍽️'),
-            ('clothing', '👕'),
-            ('farming', '🌾'),
-            ('retail', '🛍️'),
-            ('services', '🔧')
-            ON CONFLICT (name) DO NOTHING`);
-        
-        await query(`CREATE TABLE IF NOT EXISTS subscription_plans (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            tier TEXT UNIQUE NOT NULL,
-            price DECIMAL(10,2) NOT NULL,
-            max_items INTEGER,
-            max_branches INTEGER,
-            has_analytics BOOLEAN DEFAULT FALSE,
-            has_custom_branding BOOLEAN DEFAULT FALSE,
-            has_priority_support BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )`);
-        
-        await query(`INSERT INTO subscription_plans (name, tier, price, max_items, max_branches, has_analytics, has_custom_branding, has_priority_support) VALUES
-            ('Free', 'free', 0, 20, 1, FALSE, FALSE, FALSE),
-            ('Pro', 'pro', 299, NULL, 1, TRUE, TRUE, FALSE),
-            ('Enterprise', 'enterprise', 999, NULL, 10, TRUE, TRUE, TRUE)
-            ON CONFLICT (tier) DO NOTHING`);
-        
-        res.json({ success: true, message: 'Database fixed! All tables created.' });
+        res.json({ success: true, message: 'Database fixed!' });
     } catch (err) {
         res.json({ error: err.message });
     }
-});
-
-app.get('/api/debug-orders', async (req, res) => {
-    if (!req.session.vendor) return res.status(401).json({ error: 'Not logged in' });
-    const orders = await query('SELECT id, order_number, status, created_at FROM orders WHERE vendor_id = $1', [req.session.vendor.id]);
-    res.json(orders.rows);
 });
 
 // ============= VENDOR DASHBOARD PAGE =============
@@ -793,21 +722,4 @@ app.listen(PORT, () => {
     console.log(`📍 http://localhost:${PORT}`);
     console.log(`📍 Production URL: ${process.env.BASE_URL || 'Not set'}`);
     console.log(`🎉 Ready to go!\n`);
-});// File upload validation
-const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(new Error('Invalid file type. Only images are allowed.'), false);
-    }
-};
-
-const uploadWithValidation = multer({ 
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-    fileFilter: fileFilter
 });
-
-// Replace the existing upload with validated version
-// Update the routes to use uploadWithValidation instead of upload
