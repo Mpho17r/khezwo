@@ -2,34 +2,31 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#667eea">
     <title>Menu - KheZwo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; padding-bottom: 80px; }
+        body { font-family: 'Inter', sans-serif; background: #f8f9fa; padding-bottom: 80px; }
         
+        /* Header with Parallax Effect */
         .vendor-header {
-            color: white;
-            padding: 50px 20px 40px;
-            text-align: center;
             position: relative;
-            min-height: 260px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .vendor-header.default {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-        }
-        
-        .vendor-header.custom {
+            color: white;
+            padding: 60px 20px 50px;
+            text-align: center;
             background-size: cover !important;
             background-position: center !important;
         }
         
-        .vendor-header .overlay {
+        .vendor-header.default {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .vendor-header::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 0;
@@ -53,27 +50,70 @@
             justify-content: center;
             margin: 0 auto 20px;
             overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
         
         .vendor-logo img { width: 100%; height: 100%; object-fit: cover; }
-        .vendor-name { font-size: 28px; font-weight: 800; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .vendor-name { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
         .vendor-status { display: inline-block; padding: 6px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
         
+        /* Menu Categories */
+        .categories {
+            max-width: 600px;
+            margin: 20px auto 0;
+            padding: 0 20px;
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .categories::-webkit-scrollbar { display: none; }
+        .category-chip {
+            background: white;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .category-chip.active {
+            background: #667eea;
+            color: white;
+            transform: scale(1.02);
+        }
+        
+        /* Menu Items */
         .menu-section { max-width: 600px; margin: 0 auto; padding: 20px; }
         .menu-item {
             background: white;
-            border-radius: 20px;
+            border-radius: 24px;
             margin-bottom: 16px;
             padding: 16px;
             display: flex;
             gap: 16px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
-        .menu-item-image { width: 80px; height: 80px; border-radius: 16px; object-fit: cover; background: #f0f0f0; }
+        .menu-item:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .menu-item:active { transform: scale(0.98); }
+        
+        .menu-item-image {
+            width: 90px;
+            height: 90px;
+            border-radius: 20px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+        }
+        
         .menu-item-info { flex: 1; }
-        .menu-item-name { font-size: 18px; font-weight: 700; }
-        .menu-item-price { font-size: 18px; font-weight: 800; color: #667eea; margin: 5px 0; }
+        .menu-item-name { font-size: 18px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+        .menu-item-price { font-size: 20px; font-weight: 800; color: #667eea; }
+        .menu-item-description { font-size: 13px; color: #888; margin: 8px 0; line-height: 1.4; }
         .add-to-cart {
             background: #667eea;
             color: white;
@@ -84,27 +124,32 @@
             font-size: 14px;
             cursor: pointer;
             width: 100%;
+            transition: all 0.2s;
         }
+        .add-to-cart:active { transform: scale(0.95); }
         .add-to-cart:disabled { background: #ccc; cursor: not-allowed; }
         
+        /* Cart Button */
         .cart-toggle {
             position: fixed;
             bottom: 20px;
             right: 20px;
             background: #667eea;
             color: white;
-            width: 60px;
-            height: 60px;
+            width: 65px;
+            height: 65px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+            box-shadow: 0 8px 25px rgba(102,126,234,0.4);
             z-index: 100;
-            font-size: 24px;
+            font-size: 28px;
             border: none;
+            transition: all 0.2s;
         }
+        .cart-toggle:active { transform: scale(0.95); }
         .cart-count {
             position: absolute;
             top: -5px;
@@ -112,47 +157,56 @@
             background: #ff5722;
             color: white;
             border-radius: 50%;
-            width: 22px;
-            height: 22px;
-            font-size: 11px;
+            width: 25px;
+            height: 25px;
+            font-size: 12px;
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         
+        /* Cart Panel */
         .cart-panel {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             background: white;
-            border-radius: 25px 25px 0 0;
-            padding: 20px;
+            border-radius: 30px 30px 0 0;
+            padding: 25px;
             transform: translateY(100%);
-            transition: transform 0.3s;
+            transition: transform 0.3s ease-out;
             z-index: 200;
             max-height: 70vh;
             overflow-y: auto;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
         }
         .cart-panel.open { transform: translateY(0); }
-        .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
-        .cart-item-controls { display: flex; align-items: center; gap: 12px; }
-        .cart-item-controls button { width: 30px; height: 30px; border-radius: 50%; border: none; font-size: 16px; cursor: pointer; background: #f0f0f0; }
-        .cart-total { padding: 15px 0; font-size: 18px; font-weight: 800; text-align: right; color: #667eea; }
+        .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .cart-header h3 { font-size: 24px; font-weight: 800; }
+        .close-cart { background: none; border: none; font-size: 28px; cursor: pointer; color: #999; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0; }
+        .cart-item-controls { display: flex; align-items: center; gap: 15px; }
+        .cart-item-controls button { width: 35px; height: 35px; border-radius: 50%; border: none; font-size: 18px; cursor: pointer; background: #f0f0f0; transition: all 0.2s; }
+        .cart-item-controls button:active { transform: scale(0.9); }
+        .cart-total { padding: 20px 0; font-size: 24px; font-weight: 800; text-align: right; color: #667eea; }
         .checkout-btn {
             width: 100%;
-            padding: 15px;
+            padding: 18px;
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            border-radius: 30px;
-            font-size: 16px;
+            border-radius: 50px;
+            font-size: 18px;
             font-weight: 700;
             cursor: pointer;
+            transition: all 0.2s;
         }
-        .empty-cart { text-align: center; color: #999; padding: 40px; }
+        .checkout-btn:active { transform: scale(0.98); }
+        .empty-cart { text-align: center; color: #999; padding: 50px; }
         
+        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -168,41 +222,47 @@
         }
         .modal-content {
             background: white;
-            border-radius: 25px;
+            border-radius: 30px;
             padding: 30px;
             width: 90%;
             max-width: 350px;
             text-align: center;
         }
+        .modal-content h3 { font-size: 24px; margin-bottom: 20px; }
         .modal-content input, .modal-content select {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             margin: 10px 0;
             border: 2px solid #e0e0e0;
-            border-radius: 25px;
+            border-radius: 50px;
+            font-size: 16px;
         }
         .modal-content button {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             background: #667eea;
             color: white;
             border: none;
-            border-radius: 25px;
+            border-radius: 50px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
+            margin-top: 10px;
         }
-        .modal-content button:last-of-type {
-            background: #ccc;
-            color: #333;
-        }
+        .modal-content button:last-of-type { background: #ccc; color: #333; }
         
-        .watermark { text-align: center; padding: 20px; font-size: 11px; color: #bbb; }
+        .watermark { text-align: center; padding: 20px; font-size: 12px; color: #bbb; }
         .loading { text-align: center; padding: 50px; color: #999; }
+        
+        @media (max-width: 480px) {
+            .menu-item-image { width: 70px; height: 70px; }
+            .vendor-name { font-size: 26px; }
+            .cart-toggle { width: 55px; height: 55px; font-size: 24px; }
+        }
     </style>
 </head>
 <body>
-    <div id="app"><div class="loading">Loading menu...</div></div>
+    <div id="app"><div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading menu...</div></div>
     <script>
         let vendorData = null, menuItems = [], cart = [], vendorId = null;
         vendorId = window.location.pathname.split('/')[2];
@@ -224,70 +284,84 @@
         }
         
         function render() {
-            let headerHtml = '';
+            let headerStyle = '';
             const bgImage = vendorData.background_image;
             
             if (bgImage && bgImage !== 'null' && bgImage !== '') {
-                headerHtml = `
-                    <div class="vendor-header custom" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${bgImage}); background-size: cover; background-position: center;">
-                        <div class="vendor-logo">${vendorData.logo_url ? `<img src="${vendorData.logo_url}">` : '<div style="font-size:40px;">🍽️</div>'}</div>
-                        <div class="vendor-name">${escapeHtml(vendorData.business_name)}</div>
-                        <div class="vendor-status">${vendorData.is_open ? '● Open Now' : '⛔ Closed'}</div>
-                    </div>
-                `;
-            } else {
-                headerHtml = `
-                    <div class="vendor-header default">
-                        <div class="vendor-logo">${vendorData.logo_url ? `<img src="${vendorData.logo_url}">` : '<div style="font-size:40px;">🍽️</div>'}</div>
-                        <div class="vendor-name">${escapeHtml(vendorData.business_name)}</div>
-                        <div class="vendor-status">${vendorData.is_open ? '● Open Now' : '⛔ Closed'}</div>
-                    </div>
-                `;
+                headerStyle = `style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${bgImage}); background-size: cover; background-position: center;"`;
             }
             
             document.getElementById('app').innerHTML = `
-                ${headerHtml}
+                <div class="vendor-header ${bgImage ? '' : 'default'}" ${headerStyle}>
+                    <div class="vendor-logo">${vendorData.logo_url ? `<img src="${vendorData.logo_url}">` : '<i class="fas fa-utensils" style="font-size:40px; color:#667eea;"></i>'}</div>
+                    <div class="vendor-name">${escapeHtml(vendorData.business_name)}</div>
+                    <div class="vendor-status"><i class="fas ${vendorData.is_open ? 'fa-circle' : 'fa-circle'}"></i> ${vendorData.is_open ? 'Open Now' : 'Closed'}</div>
+                </div>
+                <div class="categories" id="categories"></div>
                 <div class="menu-section" id="menuList"></div>
-                <div class="watermark">Powered by KheZwo ⚡</div>
-                <button class="cart-toggle" onclick="toggleCart()">🛒<span id="cartBadge" class="cart-count" style="display:none;">0</span></button>
+                <div class="watermark">Powered by KheZwo <i class="fas fa-heart" style="color:#ff5722;"></i></div>
+                <button class="cart-toggle" onclick="toggleCart()"><i class="fas fa-shopping-bag"></i><span id="cartBadge" class="cart-count" style="display:none;">0</span></button>
                 <div class="cart-panel" id="cartPanel">
-                    <div class="cart-header"><h3>Your Order</h3><button onclick="toggleCart()" style="background:none;border:none;font-size:24px;">✕</button></div>
+                    <div class="cart-header"><h3>Your Order</h3><button class="close-cart" onclick="toggleCart()"><i class="fas fa-times"></i></button></div>
                     <div id="cartItems"></div>
                 </div>
                 <div class="modal" id="checkoutModal">
                     <div class="modal-content">
                         <h3>Complete Your Order</h3>
-                        <input type="text" id="customerName" placeholder="Your name">
+                        <input type="text" id="customerName" placeholder="Your name" autocomplete="off">
                         <input type="tel" id="customerPhone" placeholder="Phone number">
-                        <select id="paymentMethod"><option value="cash">Cash</option><option value="card">Card (coming soon)</option></select>
-                        <button onclick="submitOrder()">Place Order</button>
-                        <button onclick="closeModal()">Cancel</button>
+                        <select id="paymentMethod">
+                            <option value="cash"><i class="fas fa-money-bill-wave"></i> Cash</option>
+                            <option value="card"><i class="fas fa-credit-card"></i> Card (coming soon)</option>
+                        </select>
+                        <button onclick="submitOrder()"><i class="fas fa-check"></i> Place Order</button>
+                        <button onclick="closeModal()"><i class="fas fa-times"></i> Cancel</button>
                     </div>
                 </div>
             `;
             
+            // Categories
+            const categories = ['All', ...new Set(menuItems.map(i => i.category).filter(c => c))];
+            const catsContainer = document.getElementById('categories');
+            catsContainer.innerHTML = categories.map(cat => `<div class="category-chip" onclick="filterCategory('${cat}')">${cat}</div>`).join('');
+            document.querySelectorAll('.category-chip')[0]?.classList.add('active');
+            
+            renderMenuItems();
+            renderCart();
+        }
+        
+        function renderMenuItems(category = 'All') {
+            const filtered = category === 'All' ? menuItems : menuItems.filter(i => i.category === category);
             const container = document.getElementById('menuList');
-            if (menuItems.length === 0) {
-                container.innerHTML = '<div style="text-align:center;padding:50px;">No menu items available</div>';
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:50px;color:#999;"><i class="fas fa-search"></i><br>No items found</div>';
                 return;
             }
-            container.innerHTML = menuItems.map(item => `
+            container.innerHTML = filtered.map(item => `
                 <div class="menu-item">
-                    ${item.photo_url ? `<img class="menu-item-image" src="${item.photo_url}">` : '<div class="menu-item-image" style="background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:40px;">🍽️</div>'}
+                    ${item.photo_url ? `<img class="menu-item-image" src="${item.photo_url}">` : '<div class="menu-item-image" style="display:flex;align-items:center;justify-content:center;"><i class="fas fa-utensils" style="font-size:30px; color:#ccc;"></i></div>'}
                     <div class="menu-item-info">
-                        <div class="menu-item-name">${escapeHtml(item.name)}</div>
-                        <div class="menu-item-price">R${parseFloat(item.price).toFixed(2)}</div>
-                        <button class="add-to-cart" onclick="addToCart(${item.id}, '${escapeHtml(item.name).replace(/'/g, "\\'")}', ${item.price})" ${!item.is_available || !vendorData.is_open ? 'disabled' : ''}>${!item.is_available ? 'Out of Stock' : 'Add to Cart'}</button>
+                        <div class="menu-item-name"><span>${escapeHtml(item.name)}</span><span class="menu-item-price">R${parseFloat(item.price).toFixed(2)}</span></div>
+                        <div class="menu-item-description">${escapeHtml(item.description || '')}</div>
+                        <button class="add-to-cart" onclick="event.stopPropagation(); addToCart(${item.id}, '${escapeHtml(item.name).replace(/'/g, "\\'")}', ${item.price})" ${!item.is_available || !vendorData.is_open ? 'disabled' : ''}>${!item.is_available ? 'Out of Stock' : '<i class="fas fa-plus"></i> Add to Cart'}</button>
                     </div>
                 </div>
             `).join('');
-            renderCart();
+            window.currentCategory = category;
+        }
+        
+        function filterCategory(category) {
+            document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            renderMenuItems(category);
         }
         
         function addToCart(id, name, price) {
             const existing = cart.find(i => i.id === id);
             existing ? existing.quantity++ : cart.push({ id, name, price, quantity: 1 });
             updateCartUI();
+            // Haptic feedback
+            if (navigator.vibrate) navigator.vibrate(50);
         }
         
         function removeFromCart(id) {
@@ -311,18 +385,18 @@
         function renderCart() {
             const container = document.getElementById('cartItems');
             if (!container) return;
-            if (!cart.length) { container.innerHTML = '<div class="empty-cart">Your cart is empty</div>'; return; }
+            if (!cart.length) { container.innerHTML = '<div class="empty-cart"><i class="fas fa-shopping-bag"></i><br>Your cart is empty</div>'; return; }
             const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             container.innerHTML = cart.map(i => `
                 <div class="cart-item">
                     <div><strong>${escapeHtml(i.name)}</strong><br>R${i.price.toFixed(2)} x ${i.quantity}</div>
                     <div class="cart-item-controls">
-                        <button onclick="removeFromCart(${i.id})">−</button>
+                        <button onclick="removeFromCart(${i.id})"><i class="fas fa-minus"></i></button>
                         <span>${i.quantity}</span>
-                        <button onclick="addToCart(${i.id}, '${escapeHtml(i.name).replace(/'/g, "\\'")}', ${i.price})">+</button>
+                        <button onclick="addToCart(${i.id}, '${escapeHtml(i.name).replace(/'/g, "\\'")}', ${i.price})"><i class="fas fa-plus"></i></button>
                     </div>
                 </div>
-            `).join('') + `<div class="cart-total">Total: R${total.toFixed(2)}</div><button class="checkout-btn" onclick="openCheckout()">Proceed to Checkout →</button>`;
+            `).join('') + `<div class="cart-total">Total: R${total.toFixed(2)}</div><button class="checkout-btn" onclick="openCheckout()">Proceed to Checkout <i class="fas fa-arrow-right"></i></button>`;
         }
         
         function toggleCart() { document.getElementById('cartPanel').classList.toggle('open'); }
@@ -344,13 +418,13 @@
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    alert(`✅ Order placed!\nOrder #: ${data.order_number}\nTotal: R${total.toFixed(2)}`);
+                    alert(`✅ Order placed!\n\nOrder #: ${data.order_number}\nTotal: R${total.toFixed(2)}\n\nPlease take a screenshot of this order number.`);
                     cart = [];
                     updateCartUI();
                     closeModal();
                     if (document.getElementById('cartPanel').classList.contains('open')) toggleCart();
                 } else { alert('Error: ' + (data.error || 'Unknown')); }
-            } catch(err) { alert('Network error'); }
+            } catch(err) { alert('Network error. Please try again.'); }
         }
         
         function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
