@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Track Your Order - KheZwo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        .track-card {
+            background: white;
+            border-radius: 30px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            color: white;
+            font-size: 24px;
+        }
+        
+        h1 { font-size: 24px; color: #1a1a2e; margin-bottom: 8px; }
+        .subtitle { color: #666; font-size: 14px; }
+        
+        .search-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .search-form input {
+            flex: 1;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 30px;
+            font-size: 16px;
+        }
+        .search-form button {
+            padding: 14px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .progress-container {
+            margin: 30px 0;
+        }
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            top: 25px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #e0e0e0;
+            z-index: 0;
+        }
+        .step {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            flex: 1;
+        }
+        .step-circle {
+            width: 50px;
+            height: 50px;
+            background: white;
+            border: 3px solid #e0e0e0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .step.active .step-circle {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        .step.completed .step-circle {
+            border-color: #4caf50;
+            background: #4caf50;
+            color: white;
+        }
+        .step-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .step.active .step-label { color: #667eea; font-weight: 600; }
+        .step.completed .step-label { color: #4caf50; font-weight: 600; }
+        
+        .progress-bar {
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+        
+        .order-info {
+            background: #f8f9fa;
+            border-radius: 20px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .order-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .order-info-row:last-child { border-bottom: none; }
+        .order-label { color: #666; }
+        .order-value { font-weight: 600; color: #1a1a2e; }
+        
+        .items-list {
+            margin: 20px 0;
+        }
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .item-name { font-weight: 600; }
+        .item-price { color: #667eea; font-weight: 600; }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .status-received { background: #e3f2fd; color: #1976d2; }
+        .status-preparing { background: #fff3e0; color: #f57c00; }
+        .status-ready { background: #e8f5e9; color: #4caf50; }
+        .status-completed { background: #e8f5e9; color: #2e7d32; }
+        
+        .eta-box {
+            background: linear-gradient(135deg, #667eea10, #764ba210);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .eta-label { font-size: 12px; color: #666; margin-bottom: 5px; }
+        .eta-value { font-size: 24px; font-weight: 800; color: #667eea; }
+        
+        .refresh-btn {
+            width: 100%;
+            padding: 14px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            margin-top: 15px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+        }
+        
+        .back-btn:hover { color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="track-card">
+            <div class="header">
+                <div class="logo">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <h1>Track Your Order</h1>
+                <div class="subtitle">Enter your order number to see status</div>
+            </div>
+            
+            <div class="search-form">
+                <input type="text" id="orderNumber" placeholder="Order number" autocomplete="off">
+                <button onclick="trackOrder()"><i class="fas fa-search"></i> Track</button>
+            </div>
+            
+            <div id="result"></div>
+        </div>
+        <div class="footer">
+            <p>Powered by KheZwo ⚡</p>
+            <a href="/" class="back-btn">← Back to Home</a>
+        </div>
+    </div>
+    
+    <script>
+        let autoRefreshInterval = null;
+        
+        async function trackOrder() {
+            const orderNumber = document.getElementById('orderNumber').value.trim();
+            if (!orderNumber) {
+                showError('Please enter your order number');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading order details...</div>';
+            
+            try {
+                const response = await fetch(`/api/track-order/${encodeURIComponent(orderNumber)}`);
+                const data = await response.json();
+                
+                if (response.ok && data.order) {
+                    displayOrder(data);
+                    
+                    if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+                    if (data.order.status !== 'completed') {
+                        autoRefreshInterval = setInterval(() => {
+                            fetch(`/api/track-order/${encodeURIComponent(orderNumber)}`)
+                                .then(r => r.json())
+                                .then(d => { if (d.order) displayOrder(d); });
+                        }, 10000);
+                    }
+                } else {
+                    showError(data.error || 'Order not found');
+                }
+            } catch (err) {
+                showError('Network error. Please try again.');
+            }
+        }
+        
+        function displayOrder(data) {
+            const order = data.order;
+            const items = data.items;
+            const progress = data.progress || 0;
+            const currentStep = data.current_step || 0;
+            
+            let statusText = '';
+            let statusClass = '';
+            let estimatedTime = '';
+            
+            switch(order.status) {
+                case 'pending':
+                case 'received':
+                    statusText = 'Order Received';
+                    statusClass = 'status-received';
+                    estimatedTime = '~15 minutes';
+                    break;
+                case 'preparing':
+                    statusText = 'Preparing';
+                    statusClass = 'status-preparing';
+                    estimatedTime = '15-20 minutes';
+                    break;
+                case 'ready':
+                    statusText = 'Ready for Pickup';
+                    statusClass = 'status-ready';
+                    estimatedTime = 'Ready now!';
+                    break;
+                case 'completed':
+                    statusText = 'Completed';
+                    statusClass = 'status-completed';
+                    estimatedTime = 'Order complete';
+                    break;
+                default:
+                    statusText = order.status;
+                    statusClass = 'status-received';
+                    estimatedTime = 'Processing';
+            }
+            
+            const orderDate = new Date(order.created_at);
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <div class="order-info">
+                    <div class="order-info-row">
+                        <span class="order-label">Order Number</span>
+                        <span class="order-value">#${escapeHtml(order.order_number)}</span>
+                    </div>
+                    <div class="order-info-row">
+                        <span class="order-label">Business</span>
+                        <span class="order-value">${escapeHtml(order.business_name)}</span>
+                    </div>
+                    <div class="order-info-row">
+                        <span class="order-label">Customer</span>
+                        <span class="order-value">${escapeHtml(order.customer_name)}</span>
+                    </div>
+                    <div class="order-info-row">
+                        <span class="order-label">Date</span>
+                        <span class="order-value">${orderDate.toLocaleString()}</span>
+                    </div>
+                    <div class="order-info-row">
+                        <span class="order-label">Payment</span>
+                        <span class="order-value">${order.payment_method === 'cash' ? '💵 Cash' : '💳 Card'}</span>
+                    </div>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-steps">
+                        <div class="step ${currentStep >= 0 ? 'completed' : ''}">
+                            <div class="step-circle"><i class="fas fa-check"></i></div>
+                            <div class="step-label">Received</div>
+                        </div>
+                        <div class="step ${currentStep >= 1 ? 'completed' : ''} ${currentStep === 1 ? 'active' : ''}">
+                            <div class="step-circle"><i class="fas fa-utensils"></i></div>
+                            <div class="step-label">Preparing</div>
+                        </div>
+                        <div class="step ${currentStep >= 2 ? 'completed' : ''} ${currentStep === 2 ? 'active' : ''}">
+                            <div class="step-circle"><i class="fas fa-bell"></i></div>
+                            <div class="step-label">Ready</div>
+                        </div>
+                        <div class="step ${currentStep >= 3 ? 'completed' : ''} ${currentStep === 3 ? 'active' : ''}">
+                            <div class="step-circle"><i class="fas fa-check-double"></i></div>
+                            <div class="step-label">Completed</div>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progress}%;"></div>
+                    </div>
+                </div>
+                
+                <div class="eta-box">
+                    <div class="eta-label">Estimated Time</div>
+                    <div class="eta-value">${estimatedTime}</div>
+                </div>
+                
+                <div class="order-info">
+                    <div class="order-info-row">
+                        <span class="order-label">Status</span>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="order-info-row">
+                        <span class="order-label">Total Amount</span>
+                        <span class="order-value">R${parseFloat(order.total).toFixed(2)}</span>
+                    </div>
+                    ${order.platform_fee > 0 ? `
+                    <div class="order-info-row">
+                        <span class="order-label">Platform Fee</span>
+                        <span class="order-value">R${parseFloat(order.platform_fee).toFixed(2)}</span>
+                    </div>
+                    <div class="order-info-row">
+                        <span class="order-label">Total Paid</span>
+                        <span class="order-value">R${(parseFloat(order.total) + parseFloat(order.platform_fee)).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <h3 style="margin: 20px 0 10px;">Your Items</h3>
+                <div class="items-list">
+                    ${items.map(item => `
+                        <div class="item-row">
+                            <span class="item-name">${escapeHtml(item.name)} x${item.quantity}</span>
+                            <span class="item-price">R${(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <button class="refresh-btn" onclick="trackOrder()">
+                    <i class="fas fa-sync-alt"></i> Refresh Status
+                </button>
+            `;
+        }
+        
+        function showError(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="error"><i class="fas fa-exclamation-circle"></i> ${escapeHtml(message)}</div>`;
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+        }
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderParam = urlParams.get('order');
+        if (orderParam) {
+            document.getElementById('orderNumber').value = orderParam;
+            trackOrder();
+        }
+        
+        document.getElementById('orderNumber').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') trackOrder();
+        });
+    </script>
+</body>
+</html>
